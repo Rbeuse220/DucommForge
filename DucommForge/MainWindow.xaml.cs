@@ -11,6 +11,8 @@ public partial class MainWindow : Window
     private ObservableCollection<Agency> _agencies = new();
     private ObservableCollection<Station> _stations = new();
     private ObservableCollection<string> _agencyShorts = new();
+    private ObservableCollection<Unit> _units = new();
+    private string? _selectedStationId = null;
 
     public MainWindow()
     {
@@ -305,5 +307,155 @@ public partial class MainWindow : Window
         db.SaveChanges();
         LoadStations();
         StationsStatusText.Text = "Saved changes.";
+    }
+
+    // --------------------
+    // Units
+    // --------------------
+    private void StationsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        // Only support single-station detail view
+        if (StationsGrid.SelectedItems.Count != 1)
+        {
+            _selectedStationId = null;
+            _units = new ObservableCollection<Unit>();
+            UnitsGrid.ItemsSource = _units;
+            UnitsStatusText.Text = "Select exactly one station to view/edit units.";
+            return;
+        }
+
+        var station = StationsGrid.SelectedItem as Station;
+        _selectedStationId = station?.StationId?.Trim().ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(_selectedStationId))
+        {
+            _units = new ObservableCollection<Unit>();
+            UnitsGrid.ItemsSource = _units;
+            UnitsStatusText.Text = "Selected station has no StationId yet. Save the station first.";
+            return;
+        }
+
+        LoadUnitsForStation(_selectedStationId);
+    }
+
+    private void LoadUnitsForStation(string stationId)
+    {
+        using var db = new ForgeDbContext();
+        var all = db.Units.AsNoTracking()
+            .Where(u => u.StationId == stationId)
+            .OrderBy(u => u.UnitId)
+            .ToList();
+
+        _units = new ObservableCollection<Unit>(all);
+        UnitsGrid.ItemsSource = _units;
+        UnitsStatusText.Text = "";
+    }
+
+    private void AddUnit_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedStationId))
+        {
+            UnitsStatusText.Text = "Select exactly one saved station first.";
+            return;
+        }
+
+        _units.Add(new Unit
+        {
+            UnitId = "",
+            StationId = _selectedStationId,
+            Type = "",
+            Jump = false,
+            Active = true
+        });
+
+        UnitsStatusText.Text = "Added row. Enter Unit and Type, then Save Units.";
+    }
+
+    private void DeleteUnit_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = UnitsGrid.SelectedItems.Cast<Unit>().ToList();
+        if (selected.Count == 0)
+        {
+            UnitsStatusText.Text = "Select one or more units to delete.";
+            return;
+        }
+
+        using var db = new ForgeDbContext();
+
+        foreach (var u in selected)
+        {
+            var unitId = (u.UnitId ?? "").Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(unitId)) continue;
+
+            var existing = db.Units.SingleOrDefault(x => x.UnitId == unitId);
+            if (existing != null) db.Units.Remove(existing);
+        }
+
+        db.SaveChanges();
+
+        if (!string.IsNullOrWhiteSpace(_selectedStationId))
+            LoadUnitsForStation(_selectedStationId);
+
+        UnitsStatusText.Text = "Deleted.";
+    }
+
+    private void SaveUnits_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedStationId))
+        {
+            UnitsStatusText.Text = "Select exactly one station first.";
+            return;
+        }
+
+        // Validate required fields
+        foreach (var u in _units)
+        {
+            if (string.IsNullOrWhiteSpace(u.UnitId) || string.IsNullOrWhiteSpace(u.Type))
+            {
+                UnitsStatusText.Text = "Error: Unit and Type are required on all rows.";
+                return;
+            }
+        }
+
+        using var db = new ForgeDbContext();
+
+        // Ensure station exists (FK safety)
+        var stationExists = db.Stations.AsNoTracking().Any(s => s.StationId == _selectedStationId);
+        if (!stationExists)
+        {
+            UnitsStatusText.Text = "Error: Selected station does not exist in DB. Save the station first.";
+            return;
+        }
+
+        foreach (var u in _units)
+        {
+            var unitId = u.UnitId.Trim().ToUpperInvariant();
+            var type = u.Type.Trim();
+            var stationId = _selectedStationId;
+            var existing = db.Units.SingleOrDefault(x => x.UnitId == unitId);
+
+            if (existing == null)
+            {
+                db.Units.Add(new Unit
+                {
+                    UnitId = unitId,
+                    StationId = stationId,
+                    Type = type,
+                    Jump = u.Jump,
+                    Active = u.Active
+                });
+            }
+            else
+            {
+                existing.StationId = stationId;
+                existing.Type = type;
+                existing.Jump = u.Jump;
+                existing.Active = u.Active;
+            }
+        }
+
+        db.SaveChanges();
+        LoadUnitsForStation(_selectedStationId);
+        UnitsStatusText.Text = "Saved units.";
     }
 }

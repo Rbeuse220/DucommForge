@@ -9,7 +9,7 @@ public class ForgeDbContext : DbContext
     public DbSet<DispatchCenter> DispatchCenters => Set<DispatchCenter>();
     public DbSet<Agency> Agencies => Set<Agency>();
     public DbSet<Station> Stations => Set<Station>();
-
+    public DbSet<Unit> Units => Set<Unit>();
     public string DbPath { get; }
 
     public ForgeDbContext()
@@ -78,6 +78,20 @@ public class ForgeDbContext : DbContext
             .HasOne(s => s.Agency)
             .WithMany()
             .HasForeignKey(s => s.AgencyShort)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Unit
+        modelBuilder.Entity<Unit>()
+            .HasKey(x => x.UnitId);
+
+        modelBuilder.Entity<Unit>()
+            .Property(x => x.UnitId)
+            .IsRequired();
+
+        modelBuilder.Entity<Unit>()
+            .HasOne(u => u.Station)
+            .WithMany()
+            .HasForeignKey(u => u.StationId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }
