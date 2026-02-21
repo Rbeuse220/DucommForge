@@ -25,73 +25,113 @@ public class ForgeDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Settings
-        modelBuilder.Entity<AppSetting>()
-            .HasKey(x => x.Key);
+        modelBuilder.Entity<AppSetting>(e =>
+        {
+            e.HasKey(x => x.Key);
+            e.Property(x => x.Key).IsRequired();
+            e.Property(x => x.Value).IsRequired(false);
+        });
 
         // DispatchCenter
-        modelBuilder.Entity<DispatchCenter>()
-            .HasKey(x => x.DispatchCenterId);
+        modelBuilder.Entity<DispatchCenter>(e =>
+        {
+            e.HasKey(x => x.DispatchCenterId);
 
-        modelBuilder.Entity<DispatchCenter>()
-            .HasIndex(x => x.Code)
-            .IsUnique();
+            e.HasIndex(x => x.Code)
+             .IsUnique();
 
-        modelBuilder.Entity<DispatchCenter>()
-            .Property(x => x.Code)
-            .IsRequired();
+            e.Property(x => x.Code)
+             .IsRequired();
 
-        modelBuilder.Entity<DispatchCenter>()
-            .Property(x => x.Name)
-            .IsRequired();
+            e.Property(x => x.Name)
+             .IsRequired();
+
+            e.Property(x => x.Active)
+             .HasDefaultValue(true);
+        });
 
         // Agency
-        modelBuilder.Entity<Agency>()
-            .HasKey(x => x.Short);
+        modelBuilder.Entity<Agency>(e =>
+        {
+            e.HasKey(x => x.Short);
 
-        modelBuilder.Entity<Agency>()
-            .Property(x => x.Short)
-            .IsRequired();
+            e.Property(x => x.Short)
+             .IsRequired();
 
-        modelBuilder.Entity<Agency>()
-            .HasOne(a => a.DispatchCenter)
-            .WithMany()
-            .HasForeignKey(a => a.DispatchCenterId)
-            .OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.Name)
+             .IsRequired(false);
+
+            e.Property(x => x.Type)
+             .IsRequired();
+
+            e.Property(x => x.Owned)
+             .HasDefaultValue(false);
+
+            e.Property(x => x.Active)
+             .HasDefaultValue(true);
+
+            e.HasOne(a => a.DispatchCenter)
+             .WithMany()
+             .HasForeignKey(a => a.DispatchCenterId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(a => new { a.DispatchCenterId, a.Short })
+             .IsUnique();
+        });
 
         // Station
-        modelBuilder.Entity<Station>()
-            .HasKey(x => x.StationId);
+        modelBuilder.Entity<Station>(e =>
+        {
+            e.HasKey(x => x.StationId);
 
-        modelBuilder.Entity<Station>()
-            .Property(x => x.StationId)
-            .IsRequired();
+            e.Property(x => x.StationId)
+             .IsRequired();
 
-        modelBuilder.Entity<Station>()
-            .Property(x => x.AgencyShort)
-            .IsRequired();
+            e.Property(x => x.AgencyShort)
+             .IsRequired();
 
-        modelBuilder.Entity<Station>()
-            .Property(x => x.Active)
-            .HasDefaultValue(true);
+            e.Property(x => x.Esz)
+             .IsRequired(false);
 
-        modelBuilder.Entity<Station>()
-            .HasOne(s => s.Agency)
-            .WithMany()
-            .HasForeignKey(s => s.AgencyShort)
-            .OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.Active)
+             .HasDefaultValue(true);
+
+            e.HasOne(s => s.Agency)
+             .WithMany()
+             .HasForeignKey(s => s.AgencyShort)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(s => new { s.AgencyShort, s.StationId })
+             .IsUnique();
+        });
 
         // Unit
-        modelBuilder.Entity<Unit>()
-            .HasKey(x => x.UnitId);
+        modelBuilder.Entity<Unit>(e =>
+        {
+            e.HasKey(x => x.UnitId);
 
-        modelBuilder.Entity<Unit>()
-            .Property(x => x.UnitId)
-            .IsRequired();
+            e.Property(x => x.UnitId)
+             .IsRequired();
 
-        modelBuilder.Entity<Unit>()
-            .HasOne(u => u.Station)
-            .WithMany()
-            .HasForeignKey(u => u.StationId)
-            .OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.StationId)
+             .IsRequired();
+
+            e.Property(x => x.Type)
+             .IsRequired();
+
+            e.Property(x => x.Jump)
+             .HasDefaultValue(false);
+
+            e.Property(x => x.Active)
+             .HasDefaultValue(true);
+
+            e.HasOne(u => u.Station)
+             .WithMany()
+             .HasForeignKey(u => u.StationId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(u => new { u.StationId, u.UnitId })
+             .IsUnique();
+        });
     }
 }

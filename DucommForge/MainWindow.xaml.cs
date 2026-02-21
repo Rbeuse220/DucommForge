@@ -31,6 +31,7 @@ public partial class MainWindow : Window
         LoadConfig();
         LoadDispatchCenters();
         ApplyDispatchCenterScopeFromSetting();
+        SetScopeUi();
 
         LoadAgencies();
         LoadStations();
@@ -66,7 +67,9 @@ public partial class MainWindow : Window
         db.SaveChanges();
 
         _currentDispatchCenterCode = string.IsNullOrWhiteSpace(selectedCode) ? null : selectedCode;
+
         ApplyDispatchCenterScopeFromSetting();
+        SetScopeUi();
         LoadAgencies();
         LoadStations();
 
@@ -87,7 +90,9 @@ public partial class MainWindow : Window
         db.SaveChanges();
 
         _currentDispatchCenterCode = selectedCode;
+
         ApplyDispatchCenterScopeFromSetting();
+        SetScopeUi();
         LoadAgencies();
         LoadStations();
 
@@ -147,6 +152,24 @@ public partial class MainWindow : Window
 
         var match = list.FirstOrDefault(x => string.Equals(x, code, StringComparison.OrdinalIgnoreCase));
         CurrentDispatchCenterComboBox.SelectedItem = match;
+    }
+
+    private void SetScopeUi()
+    {
+        var hasScope = _currentDispatchCenterId.HasValue;
+
+        AgenciesTab.IsEnabled = hasScope;
+        StationsTab.IsEnabled = hasScope;
+
+        var scopeLabel = hasScope ? _currentDispatchCenterCode : "NO SCOPE";
+        Title = $"DucommForge [{scopeLabel}]";
+
+        if (!hasScope)
+        {
+            AgenciesStatusText.Text = "Select a Current Dispatch Center in Config.";
+            StationsStatusText.Text = "Select a Current Dispatch Center in Config.";
+            ClearUnitsSelectionState("Select exactly one station to view/edit units.");
+        }
     }
 
     // --------------------
@@ -224,6 +247,11 @@ public partial class MainWindow : Window
             db.SaveChanges();
             LoadDispatchCenters();
             DispatchCentersStatusText.Text = "Deleted.";
+
+            ApplyDispatchCenterScopeFromSetting();
+            SetScopeUi();
+            LoadAgencies();
+            LoadStations();
         }
         catch (DbUpdateException)
         {
@@ -271,6 +299,7 @@ public partial class MainWindow : Window
         DispatchCentersStatusText.Text = "Saved changes.";
 
         ApplyDispatchCenterScopeFromSetting();
+        SetScopeUi();
         LoadAgencies();
         LoadStations();
     }
@@ -282,18 +311,25 @@ public partial class MainWindow : Window
     {
         using var db = new ForgeDbContext();
 
-        var query = db.Agencies.AsNoTracking();
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            _agencies = new ObservableCollection<Agency>();
+            AgenciesGrid.ItemsSource = _agencies;
+            AgenciesStatusText.Text = "Select a Current Dispatch Center in Config.";
+            _agencyShorts = new ObservableCollection<string>();
+            if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c0)
+                c0.ItemsSource = _agencyShorts;
+            return;
+        }
 
-        if (_currentDispatchCenterId.HasValue)
-            query = query.Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value);
-        else
-            query = query.Where(a => false);
-
-        var all = query.OrderBy(a => a.Short).ToList();
+        var all = db.Agencies.AsNoTracking()
+            .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
+            .OrderBy(a => a.Short)
+            .ToList();
 
         _agencies = new ObservableCollection<Agency>(all);
         AgenciesGrid.ItemsSource = _agencies;
-        AgenciesStatusText.Text = _currentDispatchCenterId.HasValue ? "" : "Select a Current Dispatch Center in Config.";
+        AgenciesStatusText.Text = "";
 
         _agencyShorts = new ObservableCollection<string>(
             _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
@@ -313,12 +349,16 @@ public partial class MainWindow : Window
 
         using var db = new ForgeDbContext();
 
-        var query = db.Agencies.AsNoTracking();
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            _agencies = new ObservableCollection<Agency>();
+            AgenciesGrid.ItemsSource = _agencies;
+            AgenciesStatusText.Text = "Select a Current Dispatch Center in Config.";
+            return;
+        }
 
-        if (_currentDispatchCenterId.HasValue)
-            query = query.Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value);
-        else
-            query = query.Where(a => false);
+        var query = db.Agencies.AsNoTracking()
+            .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value);
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -330,7 +370,7 @@ public partial class MainWindow : Window
         var results = query.OrderBy(a => a.Short).ToList();
         _agencies = new ObservableCollection<Agency>(results);
         AgenciesGrid.ItemsSource = _agencies;
-        AgenciesStatusText.Text = _currentDispatchCenterId.HasValue ? "" : "Select a Current Dispatch Center in Config.";
+        AgenciesStatusText.Text = "";
 
         _agencyShorts = new ObservableCollection<string>(
             _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
@@ -430,7 +470,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                existing.DispatchCenterId = _currentDispatchCenterId.Value;
                 existing.Name = name;
                 existing.Type = type;
                 existing.Owned = a.Owned;
@@ -793,7 +832,6 @@ public partial class MainWindow : Window
     private void SetUnitsUiEnabled(bool enabled)
     {
         UnitsGrid.IsEnabled = enabled;
-
         if (AddUnitButton != null) AddUnitButton.IsEnabled = enabled;
         if (DeleteUnitButton != null) DeleteUnitButton.IsEnabled = enabled;
         if (SaveUnitsButton != null) SaveUnitsButton.IsEnabled = enabled;

@@ -5,10 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DucommForge"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="DucommForge" Height="450" Width="800">
     <Grid Margin="12">
         <TabControl>
-            <TabItem Header="Config">
+            <TabItem x:Name="ConfigTab" Header="Config">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -36,7 +36,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Dispatch Centers">
+            <TabItem x:Name="DispatchCentersTab" Header="Dispatch Centers">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -75,7 +75,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Agencies">
+            <TabItem x:Name="AgenciesTab" Header="Agencies">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -116,7 +116,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Stations">
+            <TabItem x:Name="StationsTab" Header="Stations">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
