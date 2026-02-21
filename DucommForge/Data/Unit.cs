@@ -2,12 +2,13 @@
 
 public class Unit
 {
-    public string UnitId { get; set; } = "";   // e.g., E01
+    public int UnitKey { get; set; }               // PK (SQLite integer identity)
 
-    public string StationId { get; set; } = "";
+    public int StationKey { get; set; }            // FK
     public Station? Station { get; set; }
 
-    public string Type { get; set; } = "";     // Engine, Medic, etc.
+    public string UnitId { get; set; } = "";       // e.g., E01 (unique per Station)
+    public string Type { get; set; } = "";         // e.g., Engine
     public bool Jump { get; set; } = false;
     public bool Active { get; set; } = true;
 }

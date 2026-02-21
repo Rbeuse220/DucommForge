@@ -24,7 +24,7 @@ public class ForgeDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Settings
+        // AppSetting
         modelBuilder.Entity<AppSetting>(e =>
         {
             e.HasKey(x => x.Key);
@@ -37,101 +37,79 @@ public class ForgeDbContext : DbContext
         {
             e.HasKey(x => x.DispatchCenterId);
 
-            e.HasIndex(x => x.Code)
-             .IsUnique();
+            e.Property(x => x.Code).IsRequired();
+            e.Property(x => x.Name).IsRequired();
 
-            e.Property(x => x.Code)
-             .IsRequired();
+            e.Property(x => x.Active).HasDefaultValue(true);
 
-            e.Property(x => x.Name)
-             .IsRequired();
-
-            e.Property(x => x.Active)
-             .HasDefaultValue(true);
+            e.HasIndex(x => x.Code).IsUnique();
         });
 
         // Agency
         modelBuilder.Entity<Agency>(e =>
         {
-            e.HasKey(x => x.Short);
+            e.HasKey(x => x.AgencyId);
 
-            e.Property(x => x.Short)
-             .IsRequired();
+            e.Property(x => x.Short).IsRequired();
+            e.Property(x => x.Type).IsRequired();
 
-            e.Property(x => x.Name)
-             .IsRequired(false);
+            e.Property(x => x.Owned).HasDefaultValue(true);
+            e.Property(x => x.Active).HasDefaultValue(true);
 
-            e.Property(x => x.Type)
-             .IsRequired();
-
-            e.Property(x => x.Owned)
-             .HasDefaultValue(false);
-
-            e.Property(x => x.Active)
-             .HasDefaultValue(true);
-
-            e.HasOne(a => a.DispatchCenter)
+            e.HasOne(x => x.DispatchCenter)
              .WithMany()
-             .HasForeignKey(a => a.DispatchCenterId)
+             .HasForeignKey(x => x.DispatchCenterId)
              .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasIndex(a => new { a.DispatchCenterId, a.Short })
+            // Unique per DispatchCenter
+            e.HasIndex(x => new { x.DispatchCenterId, x.Short })
              .IsUnique();
+
+            // Helpful for scope filtering
+            e.HasIndex(x => x.DispatchCenterId);
         });
 
         // Station
         modelBuilder.Entity<Station>(e =>
         {
-            e.HasKey(x => x.StationId);
+            e.HasKey(x => x.StationKey);
 
-            e.Property(x => x.StationId)
-             .IsRequired();
+            e.Property(x => x.StationId).IsRequired();
+            e.Property(x => x.Active).HasDefaultValue(true);
 
-            e.Property(x => x.AgencyShort)
-             .IsRequired();
-
-            e.Property(x => x.Esz)
-             .IsRequired(false);
-
-            e.Property(x => x.Active)
-             .HasDefaultValue(true);
-
-            e.HasOne(s => s.Agency)
+            e.HasOne(x => x.Agency)
              .WithMany()
-             .HasForeignKey(s => s.AgencyShort)
+             .HasForeignKey(x => x.AgencyId)
              .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasIndex(s => new { s.AgencyShort, s.StationId })
+            // Unique per Agency
+            e.HasIndex(x => new { x.AgencyId, x.StationId })
              .IsUnique();
+
+            e.HasIndex(x => x.AgencyId);
         });
 
         // Unit
         modelBuilder.Entity<Unit>(e =>
         {
-            e.HasKey(x => x.UnitId);
+            e.HasKey(x => x.UnitKey);
 
-            e.Property(x => x.UnitId)
-             .IsRequired();
+            e.Property(x => x.UnitId).IsRequired();
+            e.Property(x => x.Type).IsRequired();
 
-            e.Property(x => x.StationId)
-             .IsRequired();
+            e.Property(x => x.Jump).HasDefaultValue(false);
+            e.Property(x => x.Active).HasDefaultValue(true);
 
-            e.Property(x => x.Type)
-             .IsRequired();
-
-            e.Property(x => x.Jump)
-             .HasDefaultValue(false);
-
-            e.Property(x => x.Active)
-             .HasDefaultValue(true);
-
-            e.HasOne(u => u.Station)
+            e.HasOne(x => x.Station)
              .WithMany()
-             .HasForeignKey(u => u.StationId)
+             .HasForeignKey(x => x.StationKey)
              .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasIndex(u => new { u.StationId, u.UnitId })
+            // Unique per Station
+            e.HasIndex(x => new { x.StationKey, x.UnitId })
              .IsUnique();
+
+            e.HasIndex(x => x.StationKey);
         });
     }
 }

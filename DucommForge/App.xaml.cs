@@ -11,7 +11,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         using var db = new ForgeDbContext();
-        db.Database.EnsureCreated();
+        //db.Database.EnsureCreated();
 
         // Seed the primary dispatch center (DUCOMM) if missing
         if (!db.DispatchCenters.Any(x => x.Code == "DUCOMM"))

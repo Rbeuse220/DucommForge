@@ -12,13 +12,13 @@ public partial class MainWindow : Window
     private ObservableCollection<DispatchCenter> _dispatchCenters = new();
     private ObservableCollection<Agency> _agencies = new();
     private ObservableCollection<Station> _stations = new();
-    private ObservableCollection<string> _agencyShorts = new();
     private ObservableCollection<Unit> _units = new();
 
     private string? _currentDispatchCenterCode = null;
     private int? _currentDispatchCenterId = null;
 
-    private string? _selectedStationId = null;
+    private int? _selectedStationKey = null;
+    private string? _selectedStationIdText = null;
 
     public MainWindow()
     {
@@ -33,7 +33,7 @@ public partial class MainWindow : Window
         ApplyDispatchCenterScopeFromSetting();
         SetScopeUi();
 
-        LoadAgencies();
+        LoadAgencies();   // also binds agency dropdown in Stations grid
         LoadStations();
     }
 
@@ -218,7 +218,7 @@ public partial class MainWindow : Window
 
     private void AddDispatchCenter_Click(object sender, RoutedEventArgs e)
     {
-        _dispatchCenters.Add(new DispatchCenter { Code = "", Name = null, Active = true });
+        _dispatchCenters.Add(new DispatchCenter { Code = "", Name = "", Active = true });
         DispatchCentersStatusText.Text = "Added row. Enter Code, then Save Changes.";
     }
 
@@ -263,9 +263,9 @@ public partial class MainWindow : Window
     {
         foreach (var dc in _dispatchCenters)
         {
-            if (string.IsNullOrWhiteSpace(dc.Code))
+            if (string.IsNullOrWhiteSpace(dc.Code) || string.IsNullOrWhiteSpace(dc.Name))
             {
-                DispatchCentersStatusText.Text = "Error: Dispatch Center Code is required on all rows.";
+                DispatchCentersStatusText.Text = "Error: Code and Name are required on all rows.";
                 return;
             }
         }
@@ -275,7 +275,7 @@ public partial class MainWindow : Window
         foreach (var dc in _dispatchCenters)
         {
             var code = dc.Code.Trim().ToUpperInvariant();
-            var name = string.IsNullOrWhiteSpace(dc.Name) ? null : dc.Name.Trim();
+            var name = dc.Name.Trim();
 
             var existing = db.DispatchCenters.SingleOrDefault(x => x.Code == code);
             if (existing == null)
@@ -316,9 +316,8 @@ public partial class MainWindow : Window
             _agencies = new ObservableCollection<Agency>();
             AgenciesGrid.ItemsSource = _agencies;
             AgenciesStatusText.Text = "Select a Current Dispatch Center in Config.";
-            _agencyShorts = new ObservableCollection<string>();
-            if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c0)
-                c0.ItemsSource = _agencyShorts;
+
+            BindAgencyDropdownToStations();
             return;
         }
 
@@ -331,16 +330,19 @@ public partial class MainWindow : Window
         AgenciesGrid.ItemsSource = _agencies;
         AgenciesStatusText.Text = "";
 
-        _agencyShorts = new ObservableCollection<string>(
-            _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
-        );
+        BindAgencyDropdownToStations();
+        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
+    }
 
+    private void BindAgencyDropdownToStations()
+    {
+        // Bind Stations grid dropdown (column index 1 = Agency column)
         if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c)
         {
-            c.ItemsSource = _agencyShorts;
+            c.ItemsSource = _agencies;
+            c.SelectedValuePath = "AgencyId";
+            c.DisplayMemberPath = "Short";
         }
-
-        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
     private void AgencySearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -354,6 +356,7 @@ public partial class MainWindow : Window
             _agencies = new ObservableCollection<Agency>();
             AgenciesGrid.ItemsSource = _agencies;
             AgenciesStatusText.Text = "Select a Current Dispatch Center in Config.";
+            BindAgencyDropdownToStations();
             return;
         }
 
@@ -372,14 +375,7 @@ public partial class MainWindow : Window
         AgenciesGrid.ItemsSource = _agencies;
         AgenciesStatusText.Text = "";
 
-        _agencyShorts = new ObservableCollection<string>(
-            _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
-        );
-
-        if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c)
-        {
-            c.ItemsSource = _agencyShorts;
-        }
+        BindAgencyDropdownToStations();
     }
 
     private void AddAgency_Click(object sender, RoutedEventArgs e)
@@ -407,10 +403,9 @@ public partial class MainWindow : Window
 
         foreach (var a in selected)
         {
-            var key = (a.Short ?? "").Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(key)) continue;
+            if (a.AgencyId <= 0) continue;
 
-            var existing = db.Agencies.SingleOrDefault(x => x.Short == key);
+            var existing = db.Agencies.SingleOrDefault(x => x.AgencyId == a.AgencyId);
             if (existing != null) db.Agencies.Remove(existing);
         }
 
@@ -451,17 +446,20 @@ public partial class MainWindow : Window
 
         foreach (var a in _agencies)
         {
-            var key = a.Short.Trim().ToUpperInvariant();
+            var shortCode = a.Short.Trim().ToUpperInvariant();
             var name = string.IsNullOrWhiteSpace(a.Name) ? null : a.Name.Trim();
             var type = a.Type.Trim().ToLowerInvariant();
 
-            var existing = db.Agencies.SingleOrDefault(x => x.Short == key);
+            var existing = db.Agencies.SingleOrDefault(x =>
+                x.DispatchCenterId == _currentDispatchCenterId.Value &&
+                x.Short == shortCode);
+
             if (existing == null)
             {
                 db.Agencies.Add(new Agency
                 {
-                    Short = key,
                     DispatchCenterId = _currentDispatchCenterId.Value,
+                    Short = shortCode,
                     Name = name,
                     Type = type,
                     Owned = a.Owned,
@@ -498,13 +496,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        var agencyShorts = db.Agencies.AsNoTracking()
+        var agencyIds = db.Agencies.AsNoTracking()
             .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
-            .Select(a => a.Short)
+            .Select(a => a.AgencyId)
             .ToList();
 
         var all = db.Stations.AsNoTracking()
-            .Where(s => agencyShorts.Contains(s.AgencyShort))
+            .Where(s => agencyIds.Contains(s.AgencyId))
             .OrderBy(s => s.StationId)
             .ToList();
 
@@ -530,19 +528,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        var agencyShorts = db.Agencies.AsNoTracking()
+        var agencyIds = db.Agencies.AsNoTracking()
             .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
-            .Select(a => a.Short)
+            .Select(a => a.AgencyId)
             .ToList();
 
         var query = db.Stations.AsNoTracking()
-            .Where(s => agencyShorts.Contains(s.AgencyShort));
+            .Where(s => agencyIds.Contains(s.AgencyId));
 
         if (!string.IsNullOrWhiteSpace(q))
         {
-            query = query.Where(s =>
-                s.StationId.ToUpper().Contains(q) ||
-                s.AgencyShort.ToUpper().Contains(q));
+            query = query.Where(s => s.StationId.ToUpper().Contains(q));
         }
 
         var results = query.OrderBy(s => s.StationId).ToList();
@@ -561,8 +557,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var defaultAgency = _agencyShorts.FirstOrDefault() ?? "";
-        _stations.Add(new Station { StationId = "", AgencyShort = defaultAgency, Esz = null, Active = true });
+        var defaultAgencyId = _agencies.FirstOrDefault()?.AgencyId ?? 0;
+        if (defaultAgencyId <= 0)
+        {
+            StationsStatusText.Text = "Create an agency first (in this scope).";
+            return;
+        }
+
+        _stations.Add(new Station { StationId = "", AgencyId = defaultAgencyId, Esz = null, Active = true });
         StationsStatusText.Text = "Added row. Enter StationId, then Save Changes.";
 
         ClearUnitsSelectionState("Selected station has no StationId yet. Save the station first.");
@@ -581,10 +583,9 @@ public partial class MainWindow : Window
 
         foreach (var s in selected)
         {
-            var id = (s.StationId ?? "").Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(id)) continue;
+            if (s.StationKey <= 0) continue;
 
-            var existing = db.Stations.SingleOrDefault(x => x.StationId == id);
+            var existing = db.Stations.SingleOrDefault(x => x.StationKey == s.StationKey);
             if (existing != null) db.Stations.Remove(existing);
         }
 
@@ -599,7 +600,7 @@ public partial class MainWindow : Window
     {
         foreach (var s in _stations)
         {
-            if (string.IsNullOrWhiteSpace(s.StationId) || string.IsNullOrWhiteSpace(s.AgencyShort))
+            if (string.IsNullOrWhiteSpace(s.StationId) || s.AgencyId <= 0)
             {
                 StationsStatusText.Text = "Error: StationId and Agency are required on all rows.";
                 return;
@@ -614,37 +615,49 @@ public partial class MainWindow : Window
             return;
         }
 
-        var validAgencies = db.Agencies.AsNoTracking()
+        var validAgencyIds = db.Agencies.AsNoTracking()
             .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
-            .Select(a => a.Short)
+            .Select(a => a.AgencyId)
             .ToHashSet();
 
         foreach (var s in _stations)
         {
-            var id = s.StationId.Trim().ToUpperInvariant();
-            var agency = s.AgencyShort.Trim().ToUpperInvariant();
+            var stationId = s.StationId.Trim().ToUpperInvariant();
+            var agencyId = s.AgencyId;
             var esz = string.IsNullOrWhiteSpace(s.Esz) ? null : s.Esz.Trim();
 
-            if (!validAgencies.Contains(agency))
+            if (!validAgencyIds.Contains(agencyId))
             {
-                StationsStatusText.Text = $"Error: Agency '{agency}' does not exist in the current dispatch center scope.";
+                StationsStatusText.Text = "Error: Selected Agency is not in the current dispatch center scope.";
                 return;
             }
 
-            var existing = db.Stations.SingleOrDefault(x => x.StationId == id);
+            Station? existing = null;
+            if (s.StationKey > 0)
+                existing = db.Stations.SingleOrDefault(x => x.StationKey == s.StationKey);
+
             if (existing == null)
             {
+                // Avoid duplicates per AgencyId + StationId (unique index will also enforce)
+                var dupe = db.Stations.SingleOrDefault(x => x.AgencyId == agencyId && x.StationId == stationId);
+                if (dupe != null)
+                {
+                    StationsStatusText.Text = $"Error: Station '{stationId}' already exists for that agency.";
+                    return;
+                }
+
                 db.Stations.Add(new Station
                 {
-                    StationId = id,
-                    AgencyShort = agency,
+                    AgencyId = agencyId,
+                    StationId = stationId,
                     Esz = esz,
                     Active = s.Active
                 });
             }
             else
             {
-                existing.AgencyShort = agency;
+                existing.AgencyId = agencyId;
+                existing.StationId = stationId;
                 existing.Esz = esz;
                 existing.Active = s.Active;
             }
@@ -671,19 +684,21 @@ public partial class MainWindow : Window
         }
 
         var station = StationsGrid.SelectedItem as Station;
-        _selectedStationId = station?.StationId?.Trim().ToUpperInvariant();
 
-        if (string.IsNullOrWhiteSpace(_selectedStationId))
+        if (station == null || station.StationKey <= 0 || string.IsNullOrWhiteSpace(station.StationId))
         {
-            ClearUnitsSelectionState("Selected station has no StationId yet. Save the station first.");
+            ClearUnitsSelectionState("Selected station is not saved yet. Save the station first.");
             return;
         }
 
+        _selectedStationKey = station.StationKey;
+        _selectedStationIdText = station.StationId.Trim().ToUpperInvariant();
+
         try
         {
-            LoadUnitsForStation(_selectedStationId);
+            LoadUnitsForStation(_selectedStationKey.Value);
             SetUnitsUiEnabled(true);
-            UnitsStatusText.Text = $"Loaded {_units.Count} unit(s) for {_selectedStationId}.";
+            UnitsStatusText.Text = $"Loaded {_units.Count} unit(s) for {_selectedStationIdText}.";
         }
         catch (Exception ex)
         {
@@ -691,12 +706,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadUnitsForStation(string stationId)
+    private void LoadUnitsForStation(int stationKey)
     {
         using var db = new ForgeDbContext();
 
         var all = db.Units.AsNoTracking()
-            .Where(u => u.StationId == stationId)
+            .Where(u => u.StationKey == stationKey)
             .OrderBy(u => u.UnitId)
             .ToList();
 
@@ -708,7 +723,7 @@ public partial class MainWindow : Window
     {
         UnitsStatusText.Text = "";
 
-        if (string.IsNullOrWhiteSpace(_selectedStationId))
+        if (!_selectedStationKey.HasValue || _selectedStationKey.Value <= 0)
         {
             UnitsStatusText.Text = "Select exactly one saved station first.";
             return;
@@ -717,7 +732,7 @@ public partial class MainWindow : Window
         var newUnit = new Unit
         {
             UnitId = "",
-            StationId = _selectedStationId,
+            StationKey = _selectedStationKey.Value,
             Type = "",
             Jump = false,
             Active = true
@@ -752,17 +767,19 @@ public partial class MainWindow : Window
     {
         UnitsStatusText.Text = "";
 
-        if (string.IsNullOrWhiteSpace(_selectedStationId))
+        if (!_selectedStationKey.HasValue || _selectedStationKey.Value <= 0)
         {
             UnitsStatusText.Text = "Select exactly one station first.";
             return;
         }
 
+        var stationKey = _selectedStationKey.Value;
+
         foreach (var u in _units)
         {
             u.UnitId = (u.UnitId ?? "").Trim().ToUpperInvariant();
             u.Type = (u.Type ?? "").Trim();
-            u.StationId = _selectedStationId;
+            u.StationKey = stationKey;
 
             if (string.IsNullOrWhiteSpace(u.UnitId) || string.IsNullOrWhiteSpace(u.Type))
             {
@@ -783,14 +800,16 @@ public partial class MainWindow : Window
 
         using var db = new ForgeDbContext();
 
-        var stationExists = db.Stations.AsNoTracking().Any(s => s.StationId == _selectedStationId);
+        // Ensure station exists (FK safety)
+        var stationExists = db.Stations.AsNoTracking().Any(s => s.StationKey == stationKey);
         if (!stationExists)
         {
             UnitsStatusText.Text = "Error: Selected station does not exist in DB. Save the station first.";
             return;
         }
 
-        var dbUnitsForStation = db.Units.Where(u => u.StationId == _selectedStationId).ToList();
+        // Delete DB units for this station that are not present in the grid anymore
+        var dbUnitsForStation = db.Units.Where(u => u.StationKey == stationKey).ToList();
         var desiredIds = _units.Select(u => u.UnitId).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var existing in dbUnitsForStation)
@@ -799,16 +818,17 @@ public partial class MainWindow : Window
                 db.Units.Remove(existing);
         }
 
+        // Upsert current grid units by (StationKey, UnitId)
         foreach (var u in _units)
         {
-            var existing = db.Units.SingleOrDefault(x => x.UnitId == u.UnitId);
+            var existing = db.Units.SingleOrDefault(x => x.StationKey == stationKey && x.UnitId == u.UnitId);
 
             if (existing == null)
             {
                 db.Units.Add(new Unit
                 {
+                    StationKey = stationKey,
                     UnitId = u.UnitId,
-                    StationId = _selectedStationId,
                     Type = u.Type,
                     Jump = u.Jump,
                     Active = u.Active
@@ -816,7 +836,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                existing.StationId = _selectedStationId;
                 existing.Type = u.Type;
                 existing.Jump = u.Jump;
                 existing.Active = u.Active;
@@ -825,13 +844,14 @@ public partial class MainWindow : Window
 
         db.SaveChanges();
 
-        LoadUnitsForStation(_selectedStationId);
+        LoadUnitsForStation(stationKey);
         UnitsStatusText.Text = "Saved units.";
     }
 
     private void SetUnitsUiEnabled(bool enabled)
     {
         UnitsGrid.IsEnabled = enabled;
+
         if (AddUnitButton != null) AddUnitButton.IsEnabled = enabled;
         if (DeleteUnitButton != null) DeleteUnitButton.IsEnabled = enabled;
         if (SaveUnitsButton != null) SaveUnitsButton.IsEnabled = enabled;
@@ -839,9 +859,12 @@ public partial class MainWindow : Window
 
     private void ClearUnitsSelectionState(string status)
     {
-        _selectedStationId = null;
+        _selectedStationKey = null;
+        _selectedStationIdText = null;
+
         _units.Clear();
         UnitsGrid.ItemsSource = _units;
+
         SetUnitsUiEnabled(false);
         UnitsStatusText.Text = status;
     }

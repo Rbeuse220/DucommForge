@@ -146,10 +146,11 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="StationId" Binding="{Binding StationId}" Width="140"/>
 
-                            <DataGridComboBoxColumn x:Name="AgencyShortColumn"
+                            <DataGridComboBoxColumn x:Name="AgencyColumn"
                                                     Header="Agency"
-                                                    SelectedValueBinding="{Binding AgencyShort, UpdateSourceTrigger=PropertyChanged}"
-                                                    SelectedValuePath="."
+                                                    SelectedValueBinding="{Binding AgencyId, UpdateSourceTrigger=PropertyChanged}"
+                                                    SelectedValuePath="AgencyId"
+                                                    DisplayMemberPath="Short"
                                                     Width="140"/>
 
                             <DataGridTextColumn Header="ESZ" Binding="{Binding Esz}" Width="140"/>
