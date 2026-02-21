@@ -26,6 +26,7 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
+
             <TabItem Header="Agencies">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
@@ -36,15 +37,19 @@
 
                     <DockPanel>
                         <TextBlock Text="Search:" VerticalAlignment="Center"/>
-                        <TextBox x:Name="AgencySearchTextBox" Width="260" Margin="8,0,0,0"
-                     TextChanged="AgencySearch_TextChanged"/>
+                        <TextBox x:Name="AgencySearchTextBox"
+                                 Width="260"
+                                 Margin="8,0,0,0"
+                                 TextChanged="AgencySearch_TextChanged"/>
                     </DockPanel>
 
-                    <DataGrid x:Name="AgenciesGrid" Grid.Row="1" Margin="0,10,0,10"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  IsReadOnly="False"
-                  SelectionMode="Extended">
+                    <DataGrid x:Name="AgenciesGrid"
+                              Grid.Row="1"
+                              Margin="0,10,0,10"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="False"
+                              SelectionMode="Extended">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Short" Binding="{Binding Short}" Width="120"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
@@ -62,25 +67,34 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
+
             <TabItem Header="Stations">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="2*"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
+                        <!-- Units label row -->
+                        <RowDefinition Height="*"/>
+                        <!-- Units grid row -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- Units buttons row -->
                     </Grid.RowDefinitions>
 
                     <!-- Search -->
                     <DockPanel Grid.Row="0">
                         <TextBlock Text="Search:" VerticalAlignment="Center"/>
-                        <TextBox x:Name="StationSearchTextBox" Width="260" Margin="8,0,0,0"
+                        <TextBox x:Name="StationSearchTextBox"
+                                 Width="260"
+                                 Margin="8,0,0,0"
                                  TextChanged="StationSearch_TextChanged"/>
                     </DockPanel>
 
                     <!-- Stations grid -->
-                    <DataGrid x:Name="StationsGrid" Grid.Row="1" Margin="0,10,0,6"
+                    <DataGrid x:Name="StationsGrid"
+                              Grid.Row="1"
+                              Margin="0,10,0,6"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               IsReadOnly="False"
@@ -90,10 +104,10 @@
                             <DataGridTextColumn Header="StationId" Binding="{Binding StationId}" Width="140"/>
 
                             <DataGridComboBoxColumn x:Name="AgencyShortColumn"
-                                    Header="Agency"
-                                    SelectedValueBinding="{Binding AgencyShort, UpdateSourceTrigger=PropertyChanged}"
-                                    SelectedValuePath="."
-                                    Width="140"/>
+                                                    Header="Agency"
+                                                    SelectedValueBinding="{Binding AgencyShort, UpdateSourceTrigger=PropertyChanged}"
+                                                    SelectedValuePath="."
+                                                    Width="140"/>
 
                             <DataGridTextColumn Header="ESZ" Binding="{Binding Esz}" Width="140"/>
                             <DataGridCheckBoxColumn Header="Active" Binding="{Binding Active}" Width="90"/>
@@ -112,24 +126,35 @@
                     <TextBlock Grid.Row="3" Text="Units for selected station" Margin="0,8,0,6" />
 
                     <!-- Units grid -->
-                    <DataGrid x:Name="UnitsGrid" Grid.Row="3" Margin="0,30,0,10"
+                    <DataGrid x:Name="UnitsGrid"
+                              Grid.Row="4"
+                              Margin="0,0,0,10"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               IsReadOnly="False"
-                              SelectionMode="Extended">
+                              SelectionMode="Extended"
+                              IsEnabled="False">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Unit" Binding="{Binding UnitId}" Width="140"/>
-                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="200"/>
-                            <DataGridCheckBoxColumn Header="Jump" Binding="{Binding Jump}" Width="90"/>
-                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding Active}" Width="90"/>
+                            <DataGridTextColumn Header="Unit"
+                                                Binding="{Binding UnitId, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="140"/>
+                            <DataGridTextColumn Header="Type"
+                                                Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="200"/>
+                            <DataGridCheckBoxColumn Header="Jump"
+                                                    Binding="{Binding Jump, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="90"/>
+                            <DataGridCheckBoxColumn Header="Active"
+                                                    Binding="{Binding Active, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="90"/>
                         </DataGrid.Columns>
                     </DataGrid>
 
                     <!-- Units buttons -->
-                    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Left">
-                        <Button Content="Add Unit" Width="120" Click="AddUnit_Click"/>
-                        <Button Content="Delete Unit" Width="120" Margin="10,0,0,0" Click="DeleteUnit_Click"/>
-                        <Button Content="Save Units" Width="120" Margin="10,0,0,0" Click="SaveUnits_Click"/>
+                    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button x:Name="AddUnitButton" Content="Add Unit" Width="120" Click="AddUnit_Click" IsEnabled="False"/>
+                        <Button x:Name="DeleteUnitButton" Content="Delete Unit" Width="120" Margin="10,0,0,0" Click="DeleteUnit_Click" IsEnabled="False"/>
+                        <Button x:Name="SaveUnitsButton" Content="Save Units" Width="120" Margin="10,0,0,0" Click="SaveUnits_Click" IsEnabled="False"/>
                         <TextBlock x:Name="UnitsStatusText" Margin="12,6,0,0"/>
                     </StackPanel>
                 </Grid>

@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using DucommForge.Data;
@@ -12,6 +13,7 @@ public partial class MainWindow : Window
     private ObservableCollection<Station> _stations = new();
     private ObservableCollection<string> _agencyShorts = new();
     private ObservableCollection<Unit> _units = new();
+
     private string? _selectedStationId = null;
 
     public MainWindow()
@@ -20,6 +22,11 @@ public partial class MainWindow : Window
         LoadConfig();
         LoadAgencies();   // also binds agency dropdown in Stations grid
         LoadStations();
+
+        // Units grid bootstrapping
+        UnitsGrid.ItemsSource = _units;
+        SetUnitsUiEnabled(false);
+        UnitsStatusText.Text = "Select exactly one station to view/edit units.";
     }
 
     // --------------------
@@ -202,6 +209,9 @@ public partial class MainWindow : Window
         _stations = new ObservableCollection<Station>(all);
         StationsGrid.ItemsSource = _stations;
         StationsStatusText.Text = "";
+
+        // Stations refresh can invalidate the selected station -> clear units view
+        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
     private void StationSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -222,6 +232,8 @@ public partial class MainWindow : Window
         _stations = new ObservableCollection<Station>(results);
         StationsGrid.ItemsSource = _stations;
         StationsStatusText.Text = "";
+
+        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
     private void AddStation_Click(object sender, RoutedEventArgs e)
@@ -229,6 +241,8 @@ public partial class MainWindow : Window
         var defaultAgency = _agencyShorts.FirstOrDefault() ?? "";
         _stations.Add(new Station { StationId = "", AgencyShort = defaultAgency, Esz = null, Active = true });
         StationsStatusText.Text = "Added row. Enter StationId, then Save Changes.";
+
+        ClearUnitsSelectionState("Selected station has no StationId yet. Save the station first.");
     }
 
     private void DeleteStation_Click(object sender, RoutedEventArgs e)
@@ -254,6 +268,8 @@ public partial class MainWindow : Window
         db.SaveChanges();
         LoadStations();
         StationsStatusText.Text = "Deleted.";
+
+        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
     private void SaveStations_Click(object sender, RoutedEventArgs e)
@@ -307,6 +323,8 @@ public partial class MainWindow : Window
         db.SaveChanges();
         LoadStations();
         StationsStatusText.Text = "Saved changes.";
+
+        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
     // --------------------
@@ -314,13 +332,12 @@ public partial class MainWindow : Window
     // --------------------
     private void StationsGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
+        UnitsStatusText.Text = "";
+
         // Only support single-station detail view
         if (StationsGrid.SelectedItems.Count != 1)
         {
-            _selectedStationId = null;
-            _units = new ObservableCollection<Unit>();
-            UnitsGrid.ItemsSource = _units;
-            UnitsStatusText.Text = "Select exactly one station to view/edit units.";
+            ClearUnitsSelectionState("Select exactly one station to view/edit units.");
             return;
         }
 
@@ -329,13 +346,20 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(_selectedStationId))
         {
-            _units = new ObservableCollection<Unit>();
-            UnitsGrid.ItemsSource = _units;
-            UnitsStatusText.Text = "Selected station has no StationId yet. Save the station first.";
+            ClearUnitsSelectionState("Selected station has no StationId yet. Save the station first.");
             return;
         }
 
-        LoadUnitsForStation(_selectedStationId);
+        try
+        {
+            LoadUnitsForStation(_selectedStationId);
+            SetUnitsUiEnabled(true);
+            UnitsStatusText.Text = $"Loaded {_units.Count} unit(s) for {_selectedStationId}.";
+        }
+        catch (Exception ex)
+        {
+            ClearUnitsSelectionState(ex.Message);
+        }
     }
 
     private void LoadUnitsForStation(string stationId)
@@ -348,73 +372,86 @@ public partial class MainWindow : Window
 
         _units = new ObservableCollection<Unit>(all);
         UnitsGrid.ItemsSource = _units;
-        UnitsStatusText.Text = "";
     }
 
     private void AddUnit_Click(object sender, RoutedEventArgs e)
     {
+        UnitsStatusText.Text = "";
+
         if (string.IsNullOrWhiteSpace(_selectedStationId))
         {
             UnitsStatusText.Text = "Select exactly one saved station first.";
             return;
         }
 
-        _units.Add(new Unit
+        var newUnit = new Unit
         {
             UnitId = "",
             StationId = _selectedStationId,
             Type = "",
             Jump = false,
             Active = true
-        });
+        };
+
+        _units.Add(newUnit);
+
+        UnitsGrid.SelectedItem = newUnit;
+        UnitsGrid.ScrollIntoView(newUnit);
 
         UnitsStatusText.Text = "Added row. Enter Unit and Type, then Save Units.";
     }
 
     private void DeleteUnit_Click(object sender, RoutedEventArgs e)
     {
-        var selected = UnitsGrid.SelectedItems.Cast<Unit>().ToList();
-        if (selected.Count == 0)
+        UnitsStatusText.Text = "";
+
+        if (UnitsGrid.SelectedItems.Count == 0)
         {
             UnitsStatusText.Text = "Select one or more units to delete.";
             return;
         }
 
-        using var db = new ForgeDbContext();
+        // Remove from the in-memory list only. SaveUnits persists deletes.
+        var toRemove = UnitsGrid.SelectedItems.Cast<Unit>().ToList();
+        foreach (var u in toRemove)
+            _units.Remove(u);
 
-        foreach (var u in selected)
-        {
-            var unitId = (u.UnitId ?? "").Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(unitId)) continue;
-
-            var existing = db.Units.SingleOrDefault(x => x.UnitId == unitId);
-            if (existing != null) db.Units.Remove(existing);
-        }
-
-        db.SaveChanges();
-
-        if (!string.IsNullOrWhiteSpace(_selectedStationId))
-            LoadUnitsForStation(_selectedStationId);
-
-        UnitsStatusText.Text = "Deleted.";
+        UnitsStatusText.Text = $"Removed {toRemove.Count} unit(s). Click Save Units to persist.";
     }
 
     private void SaveUnits_Click(object sender, RoutedEventArgs e)
     {
+        UnitsStatusText.Text = "";
+
         if (string.IsNullOrWhiteSpace(_selectedStationId))
         {
             UnitsStatusText.Text = "Select exactly one station first.";
             return;
         }
 
-        // Validate required fields
+        // Normalize and validate required fields
         foreach (var u in _units)
         {
+            u.UnitId = (u.UnitId ?? "").Trim().ToUpperInvariant();
+            u.Type = (u.Type ?? "").Trim();
+            u.StationId = _selectedStationId;
+
             if (string.IsNullOrWhiteSpace(u.UnitId) || string.IsNullOrWhiteSpace(u.Type))
             {
                 UnitsStatusText.Text = "Error: Unit and Type are required on all rows.";
                 return;
             }
+        }
+
+        // Validate duplicates in grid (case-insensitive)
+        var dup = _units
+            .GroupBy(u => u.UnitId, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(g => g.Count() > 1);
+
+        if (dup != null)
+        {
+            UnitsStatusText.Text = $"Error: Duplicate Unit in grid: '{dup.Key}'.";
+            return;
         }
 
         using var db = new ForgeDbContext();
@@ -427,35 +464,64 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Delete DB units for this station that are not present in the grid anymore
+        var dbUnitsForStation = db.Units.Where(u => u.StationId == _selectedStationId).ToList();
+        var desiredIds = _units.Select(u => u.UnitId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var existing in dbUnitsForStation)
+        {
+            if (!desiredIds.Contains(existing.UnitId))
+                db.Units.Remove(existing);
+        }
+
+        // Upsert current grid units
         foreach (var u in _units)
         {
-            var unitId = u.UnitId.Trim().ToUpperInvariant();
-            var type = u.Type.Trim();
-            var stationId = _selectedStationId;
-            var existing = db.Units.SingleOrDefault(x => x.UnitId == unitId);
+            var existing = db.Units.SingleOrDefault(x => x.UnitId == u.UnitId);
 
             if (existing == null)
             {
                 db.Units.Add(new Unit
                 {
-                    UnitId = unitId,
-                    StationId = stationId,
-                    Type = type,
+                    UnitId = u.UnitId,
+                    StationId = _selectedStationId,
+                    Type = u.Type,
                     Jump = u.Jump,
                     Active = u.Active
                 });
             }
             else
             {
-                existing.StationId = stationId;
-                existing.Type = type;
+                existing.StationId = _selectedStationId;
+                existing.Type = u.Type;
                 existing.Jump = u.Jump;
                 existing.Active = u.Active;
             }
         }
 
         db.SaveChanges();
+
         LoadUnitsForStation(_selectedStationId);
         UnitsStatusText.Text = "Saved units.";
+    }
+
+    private void SetUnitsUiEnabled(bool enabled)
+    {
+        UnitsGrid.IsEnabled = enabled;
+
+        // These names assume you adopted the suggested x:Name values in XAML.
+        // If you did not, remove these lines or add x:Name to the buttons.
+        if (AddUnitButton != null) AddUnitButton.IsEnabled = enabled;
+        if (DeleteUnitButton != null) DeleteUnitButton.IsEnabled = enabled;
+        if (SaveUnitsButton != null) SaveUnitsButton.IsEnabled = enabled;
+    }
+
+    private void ClearUnitsSelectionState(string status)
+    {
+        _selectedStationId = null;
+        _units.Clear();
+        UnitsGrid.ItemsSource = _units;
+        SetUnitsUiEnabled(false);
+        UnitsStatusText.Text = status;
     }
 }
