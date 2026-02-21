@@ -9,24 +9,31 @@ namespace DucommForge;
 
 public partial class MainWindow : Window
 {
+    private ObservableCollection<DispatchCenter> _dispatchCenters = new();
     private ObservableCollection<Agency> _agencies = new();
     private ObservableCollection<Station> _stations = new();
     private ObservableCollection<string> _agencyShorts = new();
     private ObservableCollection<Unit> _units = new();
+
+    private string? _currentDispatchCenterCode = null;
+    private int? _currentDispatchCenterId = null;
 
     private string? _selectedStationId = null;
 
     public MainWindow()
     {
         InitializeComponent();
-        LoadConfig();
-        LoadAgencies();   // also binds agency dropdown in Stations grid
-        LoadStations();
 
-        // Units grid bootstrapping
         UnitsGrid.ItemsSource = _units;
         SetUnitsUiEnabled(false);
         UnitsStatusText.Text = "Select exactly one station to view/edit units.";
+
+        LoadConfig();
+        LoadDispatchCenters();
+        ApplyDispatchCenterScopeFromSetting();
+
+        LoadAgencies();
+        LoadStations();
     }
 
     // --------------------
@@ -35,30 +42,237 @@ public partial class MainWindow : Window
     private void LoadConfig()
     {
         using var db = new ForgeDbContext();
-        var setting = db.AppSettings.SingleOrDefault(x => x.Key == "GrafanaBaseUrl");
-        GrafanaUrlTextBox.Text = setting?.Value ?? "";
+
+        var grafana = db.AppSettings.SingleOrDefault(x => x.Key == "GrafanaBaseUrl");
+        GrafanaUrlTextBox.Text = grafana?.Value ?? "";
+
+        var currentDc = db.AppSettings.SingleOrDefault(x => x.Key == "CurrentDispatchCenterCode");
+        _currentDispatchCenterCode = string.IsNullOrWhiteSpace(currentDc?.Value) ? null : currentDc!.Value.Trim().ToUpperInvariant();
+
         ConfigStatusText.Text = "";
     }
 
     private void SaveConfig_Click(object sender, RoutedEventArgs e)
     {
         var url = (GrafanaUrlTextBox.Text ?? "").Trim();
+        var selectedCode = (CurrentDispatchCenterComboBox.SelectedItem as string ?? "").Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(selectedCode)) selectedCode = "";
 
         using var db = new ForgeDbContext();
-        var setting = db.AppSettings.SingleOrDefault(x => x.Key == "GrafanaBaseUrl");
 
+        UpsertAppSetting(db, "GrafanaBaseUrl", url);
+        UpsertAppSetting(db, "CurrentDispatchCenterCode", selectedCode);
+
+        db.SaveChanges();
+
+        _currentDispatchCenterCode = string.IsNullOrWhiteSpace(selectedCode) ? null : selectedCode;
+        ApplyDispatchCenterScopeFromSetting();
+        LoadAgencies();
+        LoadStations();
+
+        ConfigStatusText.Text = "Saved.";
+    }
+
+    private void CurrentDispatchCenterComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (CurrentDispatchCenterComboBox.ItemsSource == null)
+            return;
+
+        var selectedCode = (CurrentDispatchCenterComboBox.SelectedItem as string ?? "").Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(selectedCode))
+            return;
+
+        using var db = new ForgeDbContext();
+        UpsertAppSetting(db, "CurrentDispatchCenterCode", selectedCode);
+        db.SaveChanges();
+
+        _currentDispatchCenterCode = selectedCode;
+        ApplyDispatchCenterScopeFromSetting();
+        LoadAgencies();
+        LoadStations();
+
+        ConfigStatusText.Text = $"Scope set to {selectedCode}.";
+    }
+
+    private static void UpsertAppSetting(ForgeDbContext db, string key, string value)
+    {
+        var setting = db.AppSettings.SingleOrDefault(x => x.Key == key);
         if (setting == null)
         {
-            setting = new AppSetting { Key = "GrafanaBaseUrl", Value = url };
-            db.AppSettings.Add(setting);
+            db.AppSettings.Add(new AppSetting { Key = key, Value = value });
         }
         else
         {
-            setting.Value = url;
+            setting.Value = value;
+        }
+    }
+
+    private void ApplyDispatchCenterScopeFromSetting()
+    {
+        using var db = new ForgeDbContext();
+
+        if (string.IsNullOrWhiteSpace(_currentDispatchCenterCode))
+        {
+            _currentDispatchCenterId = null;
+            SetDispatchCenterComboSelection(null);
+            return;
+        }
+
+        var dc = db.DispatchCenters.AsNoTracking().SingleOrDefault(x => x.Code == _currentDispatchCenterCode);
+        if (dc == null)
+        {
+            _currentDispatchCenterId = null;
+            SetDispatchCenterComboSelection(null);
+            ConfigStatusText.Text = $"CurrentDispatchCenterCode '{_currentDispatchCenterCode}' not found. Select one.";
+            return;
+        }
+
+        _currentDispatchCenterId = dc.DispatchCenterId;
+        SetDispatchCenterComboSelection(dc.Code);
+    }
+
+    private void SetDispatchCenterComboSelection(string? code)
+    {
+        if (CurrentDispatchCenterComboBox.ItemsSource == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            CurrentDispatchCenterComboBox.SelectedIndex = -1;
+            return;
+        }
+
+        var list = CurrentDispatchCenterComboBox.ItemsSource as ObservableCollection<string>;
+        if (list == null) return;
+
+        var match = list.FirstOrDefault(x => string.Equals(x, code, StringComparison.OrdinalIgnoreCase));
+        CurrentDispatchCenterComboBox.SelectedItem = match;
+    }
+
+    // --------------------
+    // Dispatch Centers
+    // --------------------
+    private void LoadDispatchCenters()
+    {
+        using var db = new ForgeDbContext();
+
+        var all = db.DispatchCenters.AsNoTracking()
+            .OrderBy(x => x.Code)
+            .ToList();
+
+        _dispatchCenters = new ObservableCollection<DispatchCenter>(all);
+        DispatchCentersGrid.ItemsSource = _dispatchCenters;
+        DispatchCentersStatusText.Text = "";
+
+        var codes = new ObservableCollection<string>(
+            _dispatchCenters.Select(x => x.Code).OrderBy(x => x).ToList()
+        );
+        CurrentDispatchCenterComboBox.ItemsSource = codes;
+
+        if (!string.IsNullOrWhiteSpace(_currentDispatchCenterCode))
+            SetDispatchCenterComboSelection(_currentDispatchCenterCode);
+    }
+
+    private void DispatchCenterSearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        var q = (DispatchCenterSearchTextBox.Text ?? "").Trim().ToUpperInvariant();
+
+        using var db = new ForgeDbContext();
+        var query = db.DispatchCenters.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(x =>
+                x.Code.ToUpper().Contains(q) ||
+                (x.Name ?? "").ToUpper().Contains(q));
+        }
+
+        var results = query.OrderBy(x => x.Code).ToList();
+        _dispatchCenters = new ObservableCollection<DispatchCenter>(results);
+        DispatchCentersGrid.ItemsSource = _dispatchCenters;
+        DispatchCentersStatusText.Text = "";
+    }
+
+    private void AddDispatchCenter_Click(object sender, RoutedEventArgs e)
+    {
+        _dispatchCenters.Add(new DispatchCenter { Code = "", Name = null, Active = true });
+        DispatchCentersStatusText.Text = "Added row. Enter Code, then Save Changes.";
+    }
+
+    private void DeleteDispatchCenter_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = DispatchCentersGrid.SelectedItems.Cast<DispatchCenter>().ToList();
+        if (selected.Count == 0)
+        {
+            DispatchCentersStatusText.Text = "Select one or more rows to delete.";
+            return;
+        }
+
+        using var db = new ForgeDbContext();
+
+        foreach (var dc in selected)
+        {
+            var id = dc.DispatchCenterId;
+            if (id <= 0) continue;
+
+            var existing = db.DispatchCenters.SingleOrDefault(x => x.DispatchCenterId == id);
+            if (existing != null) db.DispatchCenters.Remove(existing);
+        }
+
+        try
+        {
+            db.SaveChanges();
+            LoadDispatchCenters();
+            DispatchCentersStatusText.Text = "Deleted.";
+        }
+        catch (DbUpdateException)
+        {
+            DispatchCentersStatusText.Text = "Delete failed. This dispatch center is referenced by agencies.";
+        }
+    }
+
+    private void SaveDispatchCenters_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var dc in _dispatchCenters)
+        {
+            if (string.IsNullOrWhiteSpace(dc.Code))
+            {
+                DispatchCentersStatusText.Text = "Error: Dispatch Center Code is required on all rows.";
+                return;
+            }
+        }
+
+        using var db = new ForgeDbContext();
+
+        foreach (var dc in _dispatchCenters)
+        {
+            var code = dc.Code.Trim().ToUpperInvariant();
+            var name = string.IsNullOrWhiteSpace(dc.Name) ? null : dc.Name.Trim();
+
+            var existing = db.DispatchCenters.SingleOrDefault(x => x.Code == code);
+            if (existing == null)
+            {
+                db.DispatchCenters.Add(new DispatchCenter
+                {
+                    Code = code,
+                    Name = name,
+                    Active = dc.Active
+                });
+            }
+            else
+            {
+                existing.Name = name;
+                existing.Active = dc.Active;
+            }
         }
 
         db.SaveChanges();
-        ConfigStatusText.Text = "Saved.";
+        LoadDispatchCenters();
+        DispatchCentersStatusText.Text = "Saved changes.";
+
+        ApplyDispatchCenterScopeFromSetting();
+        LoadAgencies();
+        LoadStations();
     }
 
     // --------------------
@@ -67,23 +281,30 @@ public partial class MainWindow : Window
     private void LoadAgencies()
     {
         using var db = new ForgeDbContext();
-        var all = db.Agencies.AsNoTracking()
-            .OrderBy(a => a.Short)
-            .ToList();
+
+        var query = db.Agencies.AsNoTracking();
+
+        if (_currentDispatchCenterId.HasValue)
+            query = query.Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value);
+        else
+            query = query.Where(a => false);
+
+        var all = query.OrderBy(a => a.Short).ToList();
 
         _agencies = new ObservableCollection<Agency>(all);
         AgenciesGrid.ItemsSource = _agencies;
-        AgenciesStatusText.Text = "";
+        AgenciesStatusText.Text = _currentDispatchCenterId.HasValue ? "" : "Select a Current Dispatch Center in Config.";
 
         _agencyShorts = new ObservableCollection<string>(
             _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
         );
 
-        // Bind Stations grid dropdown (column index 1 = Agency column)
         if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c)
         {
             c.ItemsSource = _agencyShorts;
         }
+
+        ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
     private void AgencySearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -91,7 +312,13 @@ public partial class MainWindow : Window
         var q = (AgencySearchTextBox.Text ?? "").Trim().ToUpperInvariant();
 
         using var db = new ForgeDbContext();
+
         var query = db.Agencies.AsNoTracking();
+
+        if (_currentDispatchCenterId.HasValue)
+            query = query.Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value);
+        else
+            query = query.Where(a => false);
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -103,11 +330,26 @@ public partial class MainWindow : Window
         var results = query.OrderBy(a => a.Short).ToList();
         _agencies = new ObservableCollection<Agency>(results);
         AgenciesGrid.ItemsSource = _agencies;
-        AgenciesStatusText.Text = "";
+        AgenciesStatusText.Text = _currentDispatchCenterId.HasValue ? "" : "Select a Current Dispatch Center in Config.";
+
+        _agencyShorts = new ObservableCollection<string>(
+            _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
+        );
+
+        if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c)
+        {
+            c.ItemsSource = _agencyShorts;
+        }
     }
 
     private void AddAgency_Click(object sender, RoutedEventArgs e)
     {
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            AgenciesStatusText.Text = "Select a Current Dispatch Center in Config first.";
+            return;
+        }
+
         _agencies.Add(new Agency { Short = "", Name = null, Type = "fire", Owned = true, Active = true });
         AgenciesStatusText.Text = "Added row. Enter Short, then Save Changes.";
     }
@@ -146,6 +388,12 @@ public partial class MainWindow : Window
 
     private void SaveAgencies_Click(object sender, RoutedEventArgs e)
     {
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            AgenciesStatusText.Text = "Select a Current Dispatch Center in Config first.";
+            return;
+        }
+
         foreach (var a in _agencies)
         {
             if (string.IsNullOrWhiteSpace(a.Short))
@@ -161,8 +409,6 @@ public partial class MainWindow : Window
 
         using var db = new ForgeDbContext();
 
-        var ducommId = db.DispatchCenters.Single(x => x.Code == "DUCOMM").DispatchCenterId;
-
         foreach (var a in _agencies)
         {
             var key = a.Short.Trim().ToUpperInvariant();
@@ -175,7 +421,7 @@ public partial class MainWindow : Window
                 db.Agencies.Add(new Agency
                 {
                     Short = key,
-                    DispatchCenterId = ducommId,
+                    DispatchCenterId = _currentDispatchCenterId.Value,
                     Name = name,
                     Type = type,
                     Owned = a.Owned,
@@ -184,6 +430,7 @@ public partial class MainWindow : Window
             }
             else
             {
+                existing.DispatchCenterId = _currentDispatchCenterId.Value;
                 existing.Name = name;
                 existing.Type = type;
                 existing.Owned = a.Owned;
@@ -192,7 +439,7 @@ public partial class MainWindow : Window
         }
 
         db.SaveChanges();
-        LoadAgencies(); // refresh dropdown list too
+        LoadAgencies();
         AgenciesStatusText.Text = "Saved changes.";
     }
 
@@ -202,7 +449,23 @@ public partial class MainWindow : Window
     private void LoadStations()
     {
         using var db = new ForgeDbContext();
+
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            _stations = new ObservableCollection<Station>();
+            StationsGrid.ItemsSource = _stations;
+            StationsStatusText.Text = "Select a Current Dispatch Center in Config.";
+            ClearUnitsSelectionState("Select exactly one station to view/edit units.");
+            return;
+        }
+
+        var agencyShorts = db.Agencies.AsNoTracking()
+            .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
+            .Select(a => a.Short)
+            .ToList();
+
         var all = db.Stations.AsNoTracking()
+            .Where(s => agencyShorts.Contains(s.AgencyShort))
             .OrderBy(s => s.StationId)
             .ToList();
 
@@ -210,7 +473,6 @@ public partial class MainWindow : Window
         StationsGrid.ItemsSource = _stations;
         StationsStatusText.Text = "";
 
-        // Stations refresh can invalidate the selected station -> clear units view
         ClearUnitsSelectionState("Select exactly one station to view/edit units.");
     }
 
@@ -219,7 +481,23 @@ public partial class MainWindow : Window
         var q = (StationSearchTextBox.Text ?? "").Trim().ToUpperInvariant();
 
         using var db = new ForgeDbContext();
-        var query = db.Stations.AsNoTracking();
+
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            _stations = new ObservableCollection<Station>();
+            StationsGrid.ItemsSource = _stations;
+            StationsStatusText.Text = "Select a Current Dispatch Center in Config.";
+            ClearUnitsSelectionState("Select exactly one station to view/edit units.");
+            return;
+        }
+
+        var agencyShorts = db.Agencies.AsNoTracking()
+            .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
+            .Select(a => a.Short)
+            .ToList();
+
+        var query = db.Stations.AsNoTracking()
+            .Where(s => agencyShorts.Contains(s.AgencyShort));
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -238,6 +516,12 @@ public partial class MainWindow : Window
 
     private void AddStation_Click(object sender, RoutedEventArgs e)
     {
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            StationsStatusText.Text = "Select a Current Dispatch Center in Config first.";
+            return;
+        }
+
         var defaultAgency = _agencyShorts.FirstOrDefault() ?? "";
         _stations.Add(new Station { StationId = "", AgencyShort = defaultAgency, Esz = null, Active = true });
         StationsStatusText.Text = "Added row. Enter StationId, then Save Changes.";
@@ -285,7 +569,14 @@ public partial class MainWindow : Window
 
         using var db = new ForgeDbContext();
 
+        if (!_currentDispatchCenterId.HasValue)
+        {
+            StationsStatusText.Text = "Select a Current Dispatch Center in Config first.";
+            return;
+        }
+
         var validAgencies = db.Agencies.AsNoTracking()
+            .Where(a => a.DispatchCenterId == _currentDispatchCenterId.Value)
             .Select(a => a.Short)
             .ToHashSet();
 
@@ -297,7 +588,7 @@ public partial class MainWindow : Window
 
             if (!validAgencies.Contains(agency))
             {
-                StationsStatusText.Text = $"Error: Agency '{agency}' does not exist. Create it on the Agencies tab first.";
+                StationsStatusText.Text = $"Error: Agency '{agency}' does not exist in the current dispatch center scope.";
                 return;
             }
 
@@ -334,7 +625,6 @@ public partial class MainWindow : Window
     {
         UnitsStatusText.Text = "";
 
-        // Only support single-station detail view
         if (StationsGrid.SelectedItems.Count != 1)
         {
             ClearUnitsSelectionState("Select exactly one station to view/edit units.");
@@ -365,6 +655,7 @@ public partial class MainWindow : Window
     private void LoadUnitsForStation(string stationId)
     {
         using var db = new ForgeDbContext();
+
         var all = db.Units.AsNoTracking()
             .Where(u => u.StationId == stationId)
             .OrderBy(u => u.UnitId)
@@ -411,7 +702,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Remove from the in-memory list only. SaveUnits persists deletes.
         var toRemove = UnitsGrid.SelectedItems.Cast<Unit>().ToList();
         foreach (var u in toRemove)
             _units.Remove(u);
@@ -429,7 +719,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Normalize and validate required fields
         foreach (var u in _units)
         {
             u.UnitId = (u.UnitId ?? "").Trim().ToUpperInvariant();
@@ -443,7 +732,6 @@ public partial class MainWindow : Window
             }
         }
 
-        // Validate duplicates in grid (case-insensitive)
         var dup = _units
             .GroupBy(u => u.UnitId, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault(g => g.Count() > 1);
@@ -456,7 +744,6 @@ public partial class MainWindow : Window
 
         using var db = new ForgeDbContext();
 
-        // Ensure station exists (FK safety)
         var stationExists = db.Stations.AsNoTracking().Any(s => s.StationId == _selectedStationId);
         if (!stationExists)
         {
@@ -464,7 +751,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Delete DB units for this station that are not present in the grid anymore
         var dbUnitsForStation = db.Units.Where(u => u.StationId == _selectedStationId).ToList();
         var desiredIds = _units.Select(u => u.UnitId).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -474,7 +760,6 @@ public partial class MainWindow : Window
                 db.Units.Remove(existing);
         }
 
-        // Upsert current grid units
         foreach (var u in _units)
         {
             var existing = db.Units.SingleOrDefault(x => x.UnitId == u.UnitId);
@@ -509,8 +794,6 @@ public partial class MainWindow : Window
     {
         UnitsGrid.IsEnabled = enabled;
 
-        // These names assume you adopted the suggested x:Name values in XAML.
-        // If you did not, remove these lines or add x:Name to the buttons.
         if (AddUnitButton != null) AddUnitButton.IsEnabled = enabled;
         if (DeleteUnitButton != null) DeleteUnitButton.IsEnabled = enabled;
         if (SaveUnitsButton != null) SaveUnitsButton.IsEnabled = enabled;
