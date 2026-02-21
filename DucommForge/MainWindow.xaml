@@ -26,6 +26,42 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
+            <TabItem Header="Agencies">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel>
+                        <TextBlock Text="Search:" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AgencySearchTextBox" Width="260" Margin="8,0,0,0"
+                     TextChanged="AgencySearch_TextChanged"/>
+                    </DockPanel>
+
+                    <DataGrid x:Name="AgenciesGrid" Grid.Row="1" Margin="0,10,0,10"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="False"
+                  SelectionMode="Extended">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Short" Binding="{Binding Short}" Width="120"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="140"/>
+                            <DataGridCheckBoxColumn Header="Owned" Binding="{Binding Owned}" Width="90"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding Active}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button Content="Add" Width="120" Click="AddAgency_Click"/>
+                        <Button Content="Delete" Width="120" Margin="10,0,0,0" Click="DeleteAgency_Click"/>
+                        <Button Content="Save Changes" Width="140" Margin="10,0,0,0" Click="SaveAgencies_Click"/>
+                        <TextBlock x:Name="AgenciesStatusText" Margin="12,6,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
             <TabItem Header="Stations">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
@@ -47,7 +83,11 @@
                   SelectionMode="Extended">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="StationId" Binding="{Binding StationId}" Width="140"/>
-                            <DataGridTextColumn Header="AgencyShort" Binding="{Binding AgencyShort}" Width="140"/>
+                            <DataGridComboBoxColumn x:Name="AgencyShortColumn"
+                                                    Header="Agency"
+                                                    SelectedValueBinding="{Binding AgencyShort, UpdateSourceTrigger=PropertyChanged}"
+                                                    SelectedValuePath="."
+                                                    Width="140"/>
                             <DataGridTextColumn Header="ESZ" Binding="{Binding Esz}" Width="140"/>
                             <DataGridCheckBoxColumn Header="Active" Binding="{Binding Active}" Width="90"/>
                         </DataGrid.Columns>

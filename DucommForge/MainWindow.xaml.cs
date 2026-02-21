@@ -8,12 +8,15 @@ namespace DucommForge;
 
 public partial class MainWindow : Window
 {
+    private ObservableCollection<Agency> _agencies = new();
     private ObservableCollection<Station> _stations = new();
+    private ObservableCollection<string> _agencyShorts = new();
 
     public MainWindow()
     {
         InitializeComponent();
         LoadConfig();
+        LoadAgencies();   // also binds agency dropdown in Stations grid
         LoadStations();
     }
 
@@ -47,6 +50,141 @@ public partial class MainWindow : Window
 
         db.SaveChanges();
         ConfigStatusText.Text = "Saved.";
+    }
+
+    // --------------------
+    // Agencies
+    // --------------------
+    private void LoadAgencies()
+    {
+        using var db = new ForgeDbContext();
+        var all = db.Agencies.AsNoTracking()
+            .OrderBy(a => a.Short)
+            .ToList();
+
+        _agencies = new ObservableCollection<Agency>(all);
+        AgenciesGrid.ItemsSource = _agencies;
+        AgenciesStatusText.Text = "";
+
+        _agencyShorts = new ObservableCollection<string>(
+            _agencies.Select(a => a.Short).OrderBy(x => x).ToList()
+        );
+
+        // Bind Stations grid dropdown (column index 1 = Agency column)
+        if (StationsGrid.Columns.Count > 1 && StationsGrid.Columns[1] is System.Windows.Controls.DataGridComboBoxColumn c)
+        {
+            c.ItemsSource = _agencyShorts;
+        }
+    }
+
+    private void AgencySearch_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        var q = (AgencySearchTextBox.Text ?? "").Trim().ToUpperInvariant();
+
+        using var db = new ForgeDbContext();
+        var query = db.Agencies.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(a =>
+                a.Short.ToUpper().Contains(q) ||
+                (a.Name ?? "").ToUpper().Contains(q));
+        }
+
+        var results = query.OrderBy(a => a.Short).ToList();
+        _agencies = new ObservableCollection<Agency>(results);
+        AgenciesGrid.ItemsSource = _agencies;
+        AgenciesStatusText.Text = "";
+    }
+
+    private void AddAgency_Click(object sender, RoutedEventArgs e)
+    {
+        _agencies.Add(new Agency { Short = "", Name = null, Type = "fire", Owned = true, Active = true });
+        AgenciesStatusText.Text = "Added row. Enter Short, then Save Changes.";
+    }
+
+    private void DeleteAgency_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = AgenciesGrid.SelectedItems.Cast<Agency>().ToList();
+        if (selected.Count == 0)
+        {
+            AgenciesStatusText.Text = "Select one or more rows to delete.";
+            return;
+        }
+
+        using var db = new ForgeDbContext();
+
+        foreach (var a in selected)
+        {
+            var key = (a.Short ?? "").Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(key)) continue;
+
+            var existing = db.Agencies.SingleOrDefault(x => x.Short == key);
+            if (existing != null) db.Agencies.Remove(existing);
+        }
+
+        try
+        {
+            db.SaveChanges();
+            LoadAgencies();
+            AgenciesStatusText.Text = "Deleted.";
+        }
+        catch (DbUpdateException)
+        {
+            AgenciesStatusText.Text = "Delete failed. This agency is referenced by stations.";
+        }
+    }
+
+    private void SaveAgencies_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var a in _agencies)
+        {
+            if (string.IsNullOrWhiteSpace(a.Short))
+            {
+                AgenciesStatusText.Text = "Error: Agency Short is required on all rows.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(a.Type))
+            {
+                a.Type = "fire";
+            }
+        }
+
+        using var db = new ForgeDbContext();
+
+        var ducommId = db.DispatchCenters.Single(x => x.Code == "DUCOMM").DispatchCenterId;
+
+        foreach (var a in _agencies)
+        {
+            var key = a.Short.Trim().ToUpperInvariant();
+            var name = string.IsNullOrWhiteSpace(a.Name) ? null : a.Name.Trim();
+            var type = a.Type.Trim().ToLowerInvariant();
+
+            var existing = db.Agencies.SingleOrDefault(x => x.Short == key);
+            if (existing == null)
+            {
+                db.Agencies.Add(new Agency
+                {
+                    Short = key,
+                    DispatchCenterId = ducommId,
+                    Name = name,
+                    Type = type,
+                    Owned = a.Owned,
+                    Active = a.Active
+                });
+            }
+            else
+            {
+                existing.Name = name;
+                existing.Type = type;
+                existing.Owned = a.Owned;
+                existing.Active = a.Active;
+            }
+        }
+
+        db.SaveChanges();
+        LoadAgencies(); // refresh dropdown list too
+        AgenciesStatusText.Text = "Saved changes.";
     }
 
     // --------------------
@@ -86,8 +224,9 @@ public partial class MainWindow : Window
 
     private void AddStation_Click(object sender, RoutedEventArgs e)
     {
-        _stations.Add(new Station { StationId = "", AgencyShort = "", Esz = null, Active = true });
-        StationsStatusText.Text = "Added row. Enter StationId and AgencyShort, then Save Changes.";
+        var defaultAgency = _agencyShorts.FirstOrDefault() ?? "";
+        _stations.Add(new Station { StationId = "", AgencyShort = defaultAgency, Esz = null, Active = true });
+        StationsStatusText.Text = "Added row. Enter StationId, then Save Changes.";
     }
 
     private void DeleteStation_Click(object sender, RoutedEventArgs e)
@@ -117,24 +256,32 @@ public partial class MainWindow : Window
 
     private void SaveStations_Click(object sender, RoutedEventArgs e)
     {
-        // Validate required fields for all visible rows
         foreach (var s in _stations)
         {
             if (string.IsNullOrWhiteSpace(s.StationId) || string.IsNullOrWhiteSpace(s.AgencyShort))
             {
-                StationsStatusText.Text = "Error: StationId and AgencyShort are required on all rows.";
+                StationsStatusText.Text = "Error: StationId and Agency are required on all rows.";
                 return;
             }
         }
 
         using var db = new ForgeDbContext();
 
-        // Upsert visible rows (search filters mean you might not be seeing the whole dataset)
+        var validAgencies = db.Agencies.AsNoTracking()
+            .Select(a => a.Short)
+            .ToHashSet();
+
         foreach (var s in _stations)
         {
             var id = s.StationId.Trim().ToUpperInvariant();
             var agency = s.AgencyShort.Trim().ToUpperInvariant();
             var esz = string.IsNullOrWhiteSpace(s.Esz) ? null : s.Esz.Trim();
+
+            if (!validAgencies.Contains(agency))
+            {
+                StationsStatusText.Text = $"Error: Agency '{agency}' does not exist. Create it on the Agencies tab first.";
+                return;
+            }
 
             var existing = db.Stations.SingleOrDefault(x => x.StationId == id);
             if (existing == null)
