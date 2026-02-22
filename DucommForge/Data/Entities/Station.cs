@@ -1,13 +1,19 @@
-﻿namespace DucommForge.Data.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace DucommForge.Data.Entities;
 
 public class Station
 {
-    public int StationKey { get; set; }            // PK (SQLite integer identity)
+    [Key]
+    public int StationKey { get; set; }
 
-    public int AgencyId { get; set; }              // FK
-    public Agency? Agency { get; set; }
+    public int AgencyId { get; set; }
 
-    public string StationId { get; set; } = "";    // e.g., BAF001 (unique per Agency)
+    [Required]
+    public string StationId { get; set; } = string.Empty;
+
     public string? Esz { get; set; }
     public bool Active { get; set; } = true;
+
+    public Agency? Agency { get; set; }
 }

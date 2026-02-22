@@ -1,15 +1,25 @@
-﻿namespace DucommForge.Data.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace DucommForge.Data.Entities;
 
 public class Agency
 {
-    public int AgencyId { get; set; }              // PK (SQLite integer identity)
+    [Key]
+    public int AgencyId { get; set; }
 
-    public int DispatchCenterId { get; set; }      // FK
-    public DispatchCenter? DispatchCenter { get; set; }
+    public int DispatchCenterId { get; set; }
 
-    public string Short { get; set; } = "";        // e.g., BAF (unique per DispatchCenter)
-    public string? Name { get; set; }
-    public string Type { get; set; } = "fire";
-    public bool Owned { get; set; } = true;
+    [Required]
+    public string Short { get; set; } = string.Empty;
+
+    [Required]
+    public string Name { get; set; } = string.Empty;
+
+    [Required]
+    public string Type { get; set; } = string.Empty;
+
+    public bool Owned { get; set; }
     public bool Active { get; set; } = true;
+
+    public DispatchCenter? DispatchCenter { get; set; }
 }

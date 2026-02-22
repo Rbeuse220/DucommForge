@@ -2,11 +2,10 @@
 using DucommForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace DucommForge.Migrations
+namespace DucommForge.Data.Migrations
 {
     [DbContext(typeof(DucommForgeDbContext))]
     partial class ForgeDbContextModelSnapshot : ModelSnapshot
@@ -14,188 +13,182 @@ namespace DucommForge.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
-
-            modelBuilder.Entity("DucommForge.Data.Agency", b =>
-                {
-                    b.Property<int>("AgencyId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("Active")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
-
-                    b.Property<int>("DispatchCenterId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("Owned")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("Short")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("AgencyId");
-
-                    b.HasIndex("DispatchCenterId");
-
-                    b.HasIndex("DispatchCenterId", "Short")
-                        .IsUnique();
-
-                    b.ToTable("Agencies");
-                });
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.3");
 
             modelBuilder.Entity("DucommForge.Data.AppSetting", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasColumnType("TEXT");
+            {
+                b.Property<int>("AppSettingId")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
 
-                    b.Property<string>("Value")
-                        .HasColumnType("TEXT");
+                b.Property<string>("Key")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.HasKey("Key");
+                b.Property<string>("Value")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.ToTable("AppSettings");
-                });
+                b.HasKey("AppSettingId");
 
-            modelBuilder.Entity("DucommForge.Data.DispatchCenter", b =>
-                {
-                    b.Property<int>("DispatchCenterId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                b.ToTable("AppSettings");
+            });
 
-                    b.Property<bool>("Active")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
+            modelBuilder.Entity("DucommForge.Data.Entities.Agency", b =>
+            {
+                b.Property<int>("AgencyId")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                b.Property<bool>("Active")
+                    .HasColumnType("INTEGER");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                b.Property<int>("DispatchCenterId")
+                    .HasColumnType("INTEGER");
 
-                    b.HasKey("DispatchCenterId");
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
+                b.Property<bool>("Owned")
+                    .HasColumnType("INTEGER");
 
-                    b.ToTable("DispatchCenters");
-                });
+                b.Property<string>("Short")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-            modelBuilder.Entity("DucommForge.Data.Station", b =>
-                {
-                    b.Property<int>("StationKey")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                b.Property<string>("Type")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.Property<bool>("Active")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
+                b.HasKey("AgencyId");
 
-                    b.Property<int>("AgencyId")
-                        .HasColumnType("INTEGER");
+                b.HasIndex("DispatchCenterId", "Short")
+                    .IsUnique();
 
-                    b.Property<string>("Esz")
-                        .HasColumnType("TEXT");
+                b.ToTable("Agencies");
+            });
 
-                    b.Property<string>("StationId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+            modelBuilder.Entity("DucommForge.Data.Entities.DispatchCenter", b =>
+            {
+                b.Property<int>("DispatchCenterId")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
 
-                    b.HasKey("StationKey");
+                b.Property<bool>("Active")
+                    .HasColumnType("INTEGER");
 
-                    b.HasIndex("AgencyId");
+                b.Property<string>("Code")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.HasIndex("AgencyId", "StationId")
-                        .IsUnique();
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.ToTable("Stations");
-                });
+                b.HasKey("DispatchCenterId");
 
-            modelBuilder.Entity("DucommForge.Data.Unit", b =>
-                {
-                    b.Property<int>("UnitKey")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                b.HasIndex("Code")
+                    .IsUnique();
 
-                    b.Property<bool>("Active")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
+                b.ToTable("DispatchCenters");
+            });
 
-                    b.Property<bool>("Jump")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
+            modelBuilder.Entity("DucommForge.Data.Entities.Station", b =>
+            {
+                b.Property<int>("StationKey")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
 
-                    b.Property<int>("StationKey")
-                        .HasColumnType("INTEGER");
+                b.Property<bool>("Active")
+                    .HasColumnType("INTEGER");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                b.Property<int>("AgencyId")
+                    .HasColumnType("INTEGER");
 
-                    b.Property<string>("UnitId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                b.Property<string>("Esz")
+                    .HasColumnType("TEXT");
 
-                    b.HasKey("UnitKey");
+                b.Property<string>("StationId")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
 
-                    b.HasIndex("StationKey");
+                b.HasKey("StationKey");
 
-                    b.HasIndex("StationKey", "UnitId")
-                        .IsUnique();
+                b.HasIndex("AgencyId");
 
-                    b.ToTable("Units");
-                });
+                b.HasIndex("AgencyId", "StationId")
+                    .IsUnique();
 
-            modelBuilder.Entity("DucommForge.Data.Agency", b =>
-                {
-                    b.HasOne("DucommForge.Data.DispatchCenter", "DispatchCenter")
-                        .WithMany()
-                        .HasForeignKey("DispatchCenterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.ToTable("Stations");
+            });
 
-                    b.Navigation("DispatchCenter");
-                });
+            modelBuilder.Entity("DucommForge.Data.Entities.Unit", b =>
+            {
+                b.Property<int>("UnitKey")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
 
-            modelBuilder.Entity("DucommForge.Data.Station", b =>
-                {
-                    b.HasOne("DucommForge.Data.Agency", "Agency")
-                        .WithMany()
-                        .HasForeignKey("AgencyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.Property<bool>("Active")
+                    .HasColumnType("INTEGER");
 
-                    b.Navigation("Agency");
-                });
+                b.Property<bool>("Jump")
+                    .HasColumnType("INTEGER");
 
-            modelBuilder.Entity("DucommForge.Data.Unit", b =>
-                {
-                    b.HasOne("DucommForge.Data.Station", "Station")
-                        .WithMany()
-                        .HasForeignKey("StationKey")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                b.Property<int>("StationKey")
+                    .HasColumnType("INTEGER");
 
-                    b.Navigation("Station");
-                });
+                b.Property<string>("Type")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("UnitId")
+                    .IsRequired()
+                    .HasColumnType("TEXT");
+
+                b.HasKey("UnitKey");
+
+                b.HasIndex("StationKey", "UnitId")
+                    .IsUnique();
+
+                b.HasIndex("StationKey");
+
+                b.ToTable("Units");
+            });
+
+            modelBuilder.Entity("DucommForge.Data.Entities.Agency", b =>
+            {
+                b.HasOne("DucommForge.Data.Entities.DispatchCenter", "DispatchCenter")
+                    .WithMany()
+                    .HasForeignKey("DispatchCenterId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("DispatchCenter");
+            });
+
+            modelBuilder.Entity("DucommForge.Data.Entities.Station", b =>
+            {
+                b.HasOne("DucommForge.Data.Entities.Agency", "Agency")
+                    .WithMany()
+                    .HasForeignKey("AgencyId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Agency");
+            });
+
+            modelBuilder.Entity("DucommForge.Data.Entities.Unit", b =>
+            {
+                b.HasOne("DucommForge.Data.Entities.Station", "Station")
+                    .WithMany()
+                    .HasForeignKey("StationKey")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired();
+
+                b.Navigation("Station");
+            });
 #pragma warning restore 612, 618
         }
     }

@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace DucommForge.Migrations
+namespace DucommForge.Data.Migrations
 {
     /// <inheritdoc />
     public partial class InitSchema : Migration
@@ -14,12 +14,14 @@ namespace DucommForge.Migrations
                 name: "AppSettings",
                 columns: table => new
                 {
+                    AppSettingId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
                     Key = table.Column<string>(type: "TEXT", nullable: false),
-                    Value = table.Column<string>(type: "TEXT", nullable: true)
+                    Value = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AppSettings", x => x.Key);
+                    table.PrimaryKey("PK_AppSettings", x => x.AppSettingId);
                 });
 
             migrationBuilder.CreateTable(
@@ -30,7 +32,7 @@ namespace DucommForge.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     Code = table.Column<string>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Active = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true)
+                    Active = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -45,10 +47,10 @@ namespace DucommForge.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     DispatchCenterId = table.Column<int>(type: "INTEGER", nullable: false),
                     Short = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: true),
+                    Name = table.Column<string>(type: "TEXT", nullable: false),
                     Type = table.Column<string>(type: "TEXT", nullable: false),
-                    Owned = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
-                    Active = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true)
+                    Owned = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Active = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -58,7 +60,7 @@ namespace DucommForge.Migrations
                         column: x => x.DispatchCenterId,
                         principalTable: "DispatchCenters",
                         principalColumn: "DispatchCenterId",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -70,7 +72,7 @@ namespace DucommForge.Migrations
                     AgencyId = table.Column<int>(type: "INTEGER", nullable: false),
                     StationId = table.Column<string>(type: "TEXT", nullable: false),
                     Esz = table.Column<string>(type: "TEXT", nullable: true),
-                    Active = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true)
+                    Active = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -80,7 +82,7 @@ namespace DucommForge.Migrations
                         column: x => x.AgencyId,
                         principalTable: "Agencies",
                         principalColumn: "AgencyId",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -92,8 +94,8 @@ namespace DucommForge.Migrations
                     StationKey = table.Column<int>(type: "INTEGER", nullable: false),
                     UnitId = table.Column<string>(type: "TEXT", nullable: false),
                     Type = table.Column<string>(type: "TEXT", nullable: false),
-                    Jump = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: false),
-                    Active = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true)
+                    Jump = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Active = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -103,13 +105,8 @@ namespace DucommForge.Migrations
                         column: x => x.StationKey,
                         principalTable: "Stations",
                         principalColumn: "StationKey",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Agencies_DispatchCenterId",
-                table: "Agencies",
-                column: "DispatchCenterId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Agencies_DispatchCenterId_Short",
@@ -124,26 +121,26 @@ namespace DucommForge.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Stations_AgencyId",
-                table: "Stations",
-                column: "AgencyId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Stations_AgencyId_StationId",
                 table: "Stations",
                 columns: new[] { "AgencyId", "StationId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Units_StationKey",
-                table: "Units",
-                column: "StationKey");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Units_StationKey_UnitId",
                 table: "Units",
                 columns: new[] { "StationKey", "UnitId" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Stations_AgencyId",
+                table: "Stations",
+                column: "AgencyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Units_StationKey",
+                table: "Units",
+                column: "StationKey");
         }
 
         /// <inheritdoc />

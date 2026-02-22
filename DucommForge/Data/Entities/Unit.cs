@@ -1,14 +1,22 @@
-﻿namespace DucommForge.Data.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace DucommForge.Data.Entities;
 
 public class Unit
 {
-    public int UnitKey { get; set; }               // PK (SQLite integer identity)
+    [Key]
+    public int UnitKey { get; set; }
 
-    public int StationKey { get; set; }            // FK
-    public Station? Station { get; set; }
+    public int StationKey { get; set; }
 
-    public string UnitId { get; set; } = "";       // e.g., E01 (unique per Station)
-    public string Type { get; set; } = "";         // e.g., Engine
-    public bool Jump { get; set; } = false;
+    [Required]
+    public string UnitId { get; set; } = string.Empty;
+
+    [Required]
+    public string Type { get; set; } = string.Empty;
+
+    public bool Jump { get; set; }
     public bool Active { get; set; } = true;
+
+    public Station? Station { get; set; }
 }

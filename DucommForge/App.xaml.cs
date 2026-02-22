@@ -1,6 +1,7 @@
-﻿using System.Windows;
-using DucommForge.Data;
+﻿using DucommForge.Data;
+using DucommForge.Data.Entities;
 using System.Linq;
+using System.Windows;
 
 namespace DucommForge;
 
