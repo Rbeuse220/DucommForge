@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace DucommForge.Data.Migrations
+namespace DucommForge.Migrations
 {
     /// <inheritdoc />
     public partial class InitSchema : Migration
@@ -109,9 +109,20 @@ namespace DucommForge.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Agencies_DispatchCenterId",
+                table: "Agencies",
+                column: "DispatchCenterId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Agencies_DispatchCenterId_Short",
                 table: "Agencies",
                 columns: new[] { "DispatchCenterId", "Short" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AppSettings_Key",
+                table: "AppSettings",
+                column: "Key",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -121,26 +132,26 @@ namespace DucommForge.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Stations_AgencyId",
+                table: "Stations",
+                column: "AgencyId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Stations_AgencyId_StationId",
                 table: "Stations",
                 columns: new[] { "AgencyId", "StationId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Units_StationKey",
+                table: "Units",
+                column: "StationKey");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Units_StationKey_UnitId",
                 table: "Units",
                 columns: new[] { "StationKey", "UnitId" },
                 unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Stations_AgencyId",
-                table: "Stations",
-                column: "AgencyId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Units_StationKey",
-                table: "Units",
-                column: "StationKey");
         }
 
         /// <inheritdoc />

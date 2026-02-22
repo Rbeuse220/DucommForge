@@ -2,19 +2,16 @@
 using DucommForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace DucommForge.Data.Migrations
+namespace DucommForge.Migrations
 {
     [DbContext(typeof(DucommForgeDbContext))]
-    [Migration("20260222013734_SyncModel")]
-    partial class SyncModel
+    partial class DucommForgeDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -34,6 +31,9 @@ namespace DucommForge.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("AppSettingId");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
 
                     b.ToTable("AppSettings");
                 });
@@ -66,6 +66,8 @@ namespace DucommForge.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("AgencyId");
+
+                    b.HasIndex("DispatchCenterId");
 
                     b.HasIndex("DispatchCenterId", "Short")
                         .IsUnique();
@@ -119,6 +121,8 @@ namespace DucommForge.Data.Migrations
 
                     b.HasKey("StationKey");
 
+                    b.HasIndex("AgencyId");
+
                     b.HasIndex("AgencyId", "StationId")
                         .IsUnique();
 
@@ -140,19 +144,17 @@ namespace DucommForge.Data.Migrations
                     b.Property<int>("StationKey")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("StationKey1")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("UnitId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("UnitKey");
 
-                    b.HasIndex("StationKey1");
+                    b.HasIndex("StationKey");
 
                     b.HasIndex("StationKey", "UnitId")
                         .IsUnique();
@@ -186,7 +188,9 @@ namespace DucommForge.Data.Migrations
                 {
                     b.HasOne("DucommForge.Data.Entities.Station", "Station")
                         .WithMany()
-                        .HasForeignKey("StationKey1");
+                        .HasForeignKey("StationKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Station");
                 });

@@ -17,16 +17,16 @@ public sealed class AgencyRowViewModel : ViewModelBase
 
     public string DispatchCenterCode { get; }
 
-    public RelayCommand DetailsCommand { get; }
-    public RelayCommand EditCommand { get; }
+    public AsyncRelayCommand DetailsCommand { get; }
+    public AsyncRelayCommand EditCommand { get; }
 
     public bool CanEdit { get; }
 
     public AgencyRowViewModel(
         AgencyListItem item,
         bool canEdit,
-        RelayCommand detailsCommand,
-        RelayCommand editCommand)
+        AsyncRelayCommand detailsCommand,
+        AsyncRelayCommand editCommand)
     {
         AgencyId = item.AgencyId;
         DispatchCenterId = item.DispatchCenterId;

@@ -11,7 +11,7 @@ public sealed class AgencyDetailViewModel : ViewModelBase
 
     public int AgencyId { get; }
 
-    public RelayCommand BackCommand { get; }
+    public AsyncRelayCommand BackCommand { get; }
 
     public AgencyDetailViewModel(
         AgencyDetailQueryService query,
@@ -22,7 +22,7 @@ public sealed class AgencyDetailViewModel : ViewModelBase
         _navigation = navigation;
         AgencyId = agencyId;
 
-        BackCommand = new RelayCommand(() => _navigation.GoBack());
+        BackCommand = new AsyncRelayCommand(() => _navigation.GoBack());
 
         _ = LoadAsync();
     }

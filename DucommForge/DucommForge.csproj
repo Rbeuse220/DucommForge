@@ -29,9 +29,9 @@
 	<ItemGroup>
 		<Folder Include="Composition\" />
 		<Folder Include="Converters\" />
+		<Folder Include="Migrations\" />
 		<Folder Include="Resources\" />
 		<Folder Include="Services\Agencies\Dtos\" />
-		<Folder Include="ViewModels\Common\" />
 	</ItemGroup>
 
 </Project>

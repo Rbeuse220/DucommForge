@@ -45,9 +45,9 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
             await RefreshAsync();
         };
 
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync());
+        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
 
-        ToggleScopeCommand = new RelayCommand(async () =>
+        ToggleScopeCommand = new AsyncRelayCommand(async () =>
         {
             Scope = Scope == AgencyScope.CurrentDispatchCenter
                 ? AgencyScope.AllDispatchCenters
@@ -71,6 +71,7 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         {
             if (!SetProperty(ref _scope, value)) return;
             Raise(nameof(ScopeLabel));
+            ScheduleRefresh();
         }
     }
 
@@ -85,7 +86,11 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
     public string? DispatchCenterScopeCodeOverride
     {
         get => _dispatchCenterScopeCodeOverride;
-        set => SetProperty(ref _dispatchCenterScopeCodeOverride, value);
+        set
+        {
+            if (!SetProperty(ref _dispatchCenterScopeCodeOverride, value)) return;
+            ScheduleRefresh();
+        }
     }
 
     private string? _searchText;
@@ -117,8 +122,8 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         set => SetProperty(ref _selected, value);
     }
 
-    public RelayCommand RefreshCommand { get; }
-    public RelayCommand ToggleScopeCommand { get; }
+    public AsyncRelayCommand RefreshCommand { get; }
+    public AsyncRelayCommand ToggleScopeCommand { get; }
 
     private void ScheduleRefresh()
     {
@@ -174,9 +179,11 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
         foreach (var item in items)
         {
-            var detailsCmd = new RelayCommand(() => NavigateDetails(item.AgencyId));
-            var editCmd = new RelayCommand(() => NavigateEdit(item.AgencyId));
             var canEdit = _auth.CanEditAgency(item.DispatchCenterId);
+
+            // AgencyRowViewModel ctor expects AsyncRelayCommand for args 3/4 in your build.
+            var detailsCmd = new AsyncRelayCommand(() => NavigateDetails(item.AgencyId));
+            var editCmd = new AsyncRelayCommand(() => NavigateEdit(item.AgencyId));
 
             Rows.Add(new AgencyRowViewModel(item, canEdit, detailsCmd, editCmd));
         }
@@ -196,6 +203,7 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
         var vm = _detailFactory.Create(agencyId);
         _navigation.Navigate(vm, returnState);
+        Raise(nameof(Selected));
     }
 
     private void NavigateEdit(int agencyId)
