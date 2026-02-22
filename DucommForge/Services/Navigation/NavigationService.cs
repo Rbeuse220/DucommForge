@@ -34,16 +34,22 @@ public sealed class NavigationService : ViewModelBase, INavigationService
 
     public void GoBack()
     {
+        GoBack(null);
+    }
+
+    public void GoBack(NavigationState? stateOverride)
+    {
         if (_stack.Count == 0)
             return;
 
-        var (vm, state) = _stack.Pop();
+        var (vm, storedState) = _stack.Pop();
+        var stateToUse = stateOverride ?? storedState;
 
         Current = vm;
 
         if (vm is INavigationAware aware)
         {
-            aware.OnNavigatedTo(state);
+            aware.OnNavigatedTo(stateToUse);
         }
     }
 }

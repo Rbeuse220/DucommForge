@@ -9,37 +9,62 @@ public sealed class AgencyRowViewModel : ViewModelBase
     public int DispatchCenterId { get; }
 
     public string Short { get; }
-    public string Name { get; }
-    public string Type { get; }
 
-    public bool Owned { get; }
-    public bool Active { get; }
+    private string _name;
+    public string Name
+    {
+        get => _name;
+        set => SetProperty(ref _name, value);
+    }
+
+    private string _type;
+    public string Type
+    {
+        get => _type;
+        set => SetProperty(ref _type, value);
+    }
+
+    private bool _owned;
+    public bool Owned
+    {
+        get => _owned;
+        set => SetProperty(ref _owned, value);
+    }
+
+    private bool _active;
+    public bool Active
+    {
+        get => _active;
+        set => SetProperty(ref _active, value);
+    }
 
     public string DispatchCenterCode { get; }
 
     public AsyncRelayCommand DetailsCommand { get; }
-    public AsyncRelayCommand EditCommand { get; }
-
-    public bool CanEdit { get; }
 
     public AgencyRowViewModel(
         AgencyListItem item,
-        bool canEdit,
-        AsyncRelayCommand detailsCommand,
-        AsyncRelayCommand editCommand)
+        AsyncRelayCommand detailsCommand)
     {
         AgencyId = item.AgencyId;
         DispatchCenterId = item.DispatchCenterId;
 
         Short = item.Short;
-        Name = item.Name;
-        Type = item.Type;
-        Owned = item.Owned;
-        Active = item.Active;
+        _name = item.Name;
+        _type = item.Type;
+        _owned = item.Owned;
+        _active = item.Active;
+
         DispatchCenterCode = item.DispatchCenterCode;
 
-        CanEdit = canEdit;
         DetailsCommand = detailsCommand;
-        EditCommand = editCommand;
+    }
+
+    public void ApplyEdits(string name, string type, bool owned, bool active)
+    {
+        Name = name;
+        Type = type;
+        Owned = owned;
+        Active = active;
     }
 }

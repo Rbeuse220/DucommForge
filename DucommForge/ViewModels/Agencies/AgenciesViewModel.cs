@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using DucommForge.Data;
-using DucommForge.Services.Auth;
 using DucommForge.Services.Navigation;
 using DucommForge.ViewModels.Common;
 
@@ -14,7 +13,6 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 {
     private readonly AgencyQueryService _query;
     private readonly INavigationService _navigation;
-    private readonly IAuthorizationService _auth;
     private readonly IAgencyDetailViewModelFactory _detailFactory;
 
     private readonly DispatcherTimer _refreshTimer;
@@ -25,12 +23,10 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
     public AgenciesViewModel(
         AgencyQueryService query,
         INavigationService navigation,
-        IAuthorizationService auth,
         IAgencyDetailViewModelFactory detailFactory)
     {
         _query = query;
         _navigation = navigation;
-        _auth = auth;
         _detailFactory = detailFactory;
 
         Rows = new ObservableCollection<AgencyRowViewModel>();
@@ -82,17 +78,6 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         _ => Scope.ToString()
     };
 
-    private string? _dispatchCenterScopeCodeOverride;
-    public string? DispatchCenterScopeCodeOverride
-    {
-        get => _dispatchCenterScopeCodeOverride;
-        set
-        {
-            if (!SetProperty(ref _dispatchCenterScopeCodeOverride, value)) return;
-            ScheduleRefresh();
-        }
-    }
-
     private string? _searchText;
     public string? SearchText
     {
@@ -140,13 +125,78 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
             Scope = (AgencyScope)scopeValue;
         }
 
-        DispatchCenterScopeCodeOverride = state.DispatchCenterScopeCode;
         SearchText = state.SearchText;
         ActiveOnly = state.ActiveOnly ?? true;
 
-        _pendingSelectAgencyId = state.SelectedAgencyId;
+        if (TryApplyEditStateToList(state))
+        {
+            _pendingSelectAgencyId = state.EditedAgencyId ?? state.SelectedAgencyId;
+            return;
+        }
 
+        _pendingSelectAgencyId = state.SelectedAgencyId;
         _ = RefreshAsync();
+    }
+
+    private bool TryApplyEditStateToList(NavigationState state)
+    {
+        if (state.EditedAgencyId is not int id)
+            return false;
+
+        if (state.EditedName == null || state.EditedType == null || state.EditedOwned == null || state.EditedActive == null)
+            return false;
+
+        var row = Rows.FirstOrDefault(r => r.AgencyId == id);
+
+        var shouldBeIncluded = MatchesFilters(
+            shortCode: row?.Short,
+            name: state.EditedName,
+            active: state.EditedActive.Value);
+
+        if (row != null)
+        {
+            if (shouldBeIncluded)
+            {
+                row.ApplyEdits(state.EditedName, state.EditedType, state.EditedOwned.Value, state.EditedActive.Value);
+                Selected = row;
+            }
+            else
+            {
+                var wasSelected = ReferenceEquals(Selected, row);
+                Rows.Remove(row);
+                if (wasSelected) Selected = null;
+            }
+
+            return true;
+        }
+
+        if (shouldBeIncluded)
+        {
+            _ = RefreshAsync();
+            return true;
+        }
+
+        return true;
+    }
+
+    private bool MatchesFilters(string? shortCode, string name, bool active)
+    {
+        if (ActiveOnly && !active)
+            return false;
+
+        var s = SearchText;
+        if (string.IsNullOrWhiteSpace(s))
+            return true;
+
+        var needle = s.Trim();
+
+        if (!string.IsNullOrEmpty(shortCode) && shortCode.Contains(needle, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!string.IsNullOrEmpty(name) && name.Contains(needle, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
     }
 
     private NavigationState CaptureReturnState(int? selectedAgencyId)
@@ -154,7 +204,6 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         return new NavigationState
         {
             AgencyScope = (int)Scope,
-            DispatchCenterScopeCode = DispatchCenterScopeCodeOverride,
             SearchText = SearchText,
             ActiveOnly = ActiveOnly,
             SelectedAgencyId = selectedAgencyId
@@ -163,7 +212,7 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
     private async Task RefreshAsync()
     {
-        var queryKey = $"{(int)Scope}|{DispatchCenterScopeCodeOverride}|{SearchText}|{ActiveOnly}";
+        var queryKey = $"{(int)Scope}|{SearchText}|{ActiveOnly}";
         if (queryKey == _lastQueryKey && _pendingSelectAgencyId == null)
             return;
 
@@ -171,7 +220,6 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
         var items = await _query.GetAgenciesAsync(
             scope: Scope,
-            dispatchCenterScopeCodeOverride: DispatchCenterScopeCodeOverride,
             searchText: SearchText,
             activeOnly: ActiveOnly);
 
@@ -179,13 +227,8 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
         foreach (var item in items)
         {
-            var canEdit = _auth.CanEditAgency(item.DispatchCenterId);
-
-            // AgencyRowViewModel ctor expects AsyncRelayCommand for args 3/4 in your build.
             var detailsCmd = new AsyncRelayCommand(() => NavigateDetails(item.AgencyId));
-            var editCmd = new AsyncRelayCommand(() => NavigateEdit(item.AgencyId));
-
-            Rows.Add(new AgencyRowViewModel(item, canEdit, detailsCmd, editCmd));
+            Rows.Add(new AgencyRowViewModel(item, detailsCmd));
         }
 
         if (_pendingSelectAgencyId is int id)
@@ -204,10 +247,5 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         var vm = _detailFactory.Create(agencyId);
         _navigation.Navigate(vm, returnState);
         Raise(nameof(Selected));
-    }
-
-    private void NavigateEdit(int agencyId)
-    {
-        // Not implemented yet.
     }
 }

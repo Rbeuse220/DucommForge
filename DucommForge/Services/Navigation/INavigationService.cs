@@ -7,7 +7,9 @@ public interface INavigationService
     ViewModelBase? Current { get; }
 
     void Navigate(ViewModelBase viewModel, NavigationState? returnState = null);
+
     void GoBack();
+    void GoBack(NavigationState? stateOverride);
 
     NavigationState? CurrentReturnState { get; }
 }

@@ -14,5 +14,9 @@
             <views:AgencyDetailView />
         </DataTemplate>
 
+        <DataTemplate DataType="{x:Type vm:AgencyEditViewModel}">
+            <views:AgencyEditView />
+        </DataTemplate>
+
     </Application.Resources>
 </Application>

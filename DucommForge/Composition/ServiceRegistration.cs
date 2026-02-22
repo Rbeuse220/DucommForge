@@ -32,8 +32,10 @@ public static class ServiceRegistration
 
         services.AddTransient<AgencyQueryService>();
         services.AddTransient<AgencyDetailQueryService>();
+        services.AddTransient<AgencyCommandService>();
 
         services.AddTransient<IAgencyDetailViewModelFactory, AgencyDetailViewModelFactory>();
+        services.AddTransient<IAgencyEditViewModelFactory, AgencyEditViewModelFactory>();
 
         services.AddTransient<AgenciesViewModel>();
 

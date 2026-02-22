@@ -6,7 +6,6 @@ public sealed class AgencyQueryService(IDbContextFactory<DucommForgeDbContext> d
 {
     public async Task<List<AgencyListItem>> GetAgenciesAsync(
         AgencyScope scope,
-        string? dispatchCenterScopeCodeOverride,
         string? searchText,
         bool activeOnly,
         CancellationToken cancellationToken = default)
@@ -19,16 +18,11 @@ public sealed class AgencyQueryService(IDbContextFactory<DucommForgeDbContext> d
 
         if (scope == AgencyScope.CurrentDispatchCenter)
         {
-            var centerCode = dispatchCenterScopeCodeOverride;
-
-            if (string.IsNullOrWhiteSpace(centerCode))
-            {
-                centerCode = await db.AppSettings
-                    .AsNoTracking()
-                    .Where(s => s.Key == "CurrentDispatchCenterCode")
-                    .Select(s => s.Value)
-                    .FirstOrDefaultAsync(cancellationToken);
-            }
+            var centerCode = await db.AppSettings
+                .AsNoTracking()
+                .Where(s => s.Key == "CurrentDispatchCenterCode")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(centerCode))
             {
