@@ -2,6 +2,7 @@
 using DucommForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DucommForge.Data.Migrations
 {
     [DbContext(typeof(DucommForgeDbContext))]
-    partial class ForgeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222013734_SyncModel")]
+    partial class SyncModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -64,7 +67,8 @@ namespace DucommForge.Data.Migrations
 
                     b.HasKey("AgencyId");
 
-                    b.HasIndex("DispatchCenterId");
+                    b.HasIndex("DispatchCenterId", "Short")
+                        .IsUnique();
 
                     b.ToTable("Agencies");
                 });
@@ -115,7 +119,8 @@ namespace DucommForge.Data.Migrations
 
                     b.HasKey("StationKey");
 
-                    b.HasIndex("AgencyId");
+                    b.HasIndex("AgencyId", "StationId")
+                        .IsUnique();
 
                     b.ToTable("Stations");
                 });
@@ -135,6 +140,9 @@ namespace DucommForge.Data.Migrations
                     b.Property<int>("StationKey")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("StationKey1")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -144,7 +152,10 @@ namespace DucommForge.Data.Migrations
 
                     b.HasKey("UnitKey");
 
-                    b.HasIndex("StationKey");
+                    b.HasIndex("StationKey1");
+
+                    b.HasIndex("StationKey", "UnitId")
+                        .IsUnique();
 
                     b.ToTable("Units");
                 });
@@ -175,9 +186,7 @@ namespace DucommForge.Data.Migrations
                 {
                     b.HasOne("DucommForge.Data.Entities.Station", "Station")
                         .WithMany()
-                        .HasForeignKey("StationKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("StationKey1");
 
                     b.Navigation("Station");
                 });

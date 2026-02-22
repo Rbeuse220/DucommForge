@@ -13,14 +13,4 @@ public partial class MainWindow : Window
     {
         Close();
     }
-
-    private void About_Click(object sender, RoutedEventArgs e)
-    {
-        MessageBox.Show(
-            "DucommForge\n\nConfiguration editor for Dispatch Centers, Agencies, Stations, and Units.",
-            "About DucommForge",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information
-        );
-    }
 }

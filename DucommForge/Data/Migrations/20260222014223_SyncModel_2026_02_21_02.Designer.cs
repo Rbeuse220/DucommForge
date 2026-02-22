@@ -2,6 +2,7 @@
 using DucommForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DucommForge.Data.Migrations
 {
     [DbContext(typeof(DucommForgeDbContext))]
-    partial class ForgeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222014223_SyncModel_2026_02_21_02")]
+    partial class SyncModel_2026_02_21_02
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");

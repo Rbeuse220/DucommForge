@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace DucommForge.Services.Navigation;
 
-namespace DucommForge.Services.Navigation
+public sealed class NavigationState
 {
-    internal class NavigationState
-    {
-    }
+    public string? DispatchCenterScopeCode { get; init; } // null/empty means ALL
+    public string? SearchText { get; init; }
+    public bool? ActiveOnly { get; init; }
+    public int? SelectedAgencyId { get; init; }
 }

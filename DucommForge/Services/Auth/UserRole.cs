@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace DucommForge.Services.Auth;
 
-namespace DucommForge.Services.Auth
+public enum UserRole
 {
-    internal class UserRole
-    {
-    }
+    Viewer = 0,
+    Editor = 1,
+    Admin = 2,
+    SuperAdmin = 3
 }

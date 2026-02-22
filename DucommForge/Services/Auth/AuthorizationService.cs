@@ -1,10 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace DucommForge.Services.Auth;
 
-namespace DucommForge.Services.Auth
+public sealed class AuthorizationService : IAuthorizationService
 {
-    internal class AuthorizationService
+    private readonly CurrentUserContext _user;
+
+    public AuthorizationService(CurrentUserContext user)
     {
+        _user = user;
+    }
+
+    public bool CanEditAgency(int dispatchCenterId)
+    {
+        if (_user.Role == UserRole.SuperAdmin) return true;
+        if (_user.Role == UserRole.Admin) return true;
+
+        if (_user.Role == UserRole.Editor)
+        {
+            return _user.CanEditAllDispatchCenters || _user.EditableDispatchCenterIds.Contains(dispatchCenterId);
+        }
+
+        return false;
     }
 }

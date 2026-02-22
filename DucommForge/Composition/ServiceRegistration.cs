@@ -1,4 +1,7 @@
-﻿using DucommForge.Data;
+﻿using System;
+using DucommForge.Data;
+using DucommForge.Services.Auth;
+using DucommForge.Services.Navigation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,9 +14,19 @@ public static class ServiceRegistration
     {
         services.AddDbContext<DucommForgeDbContext>(opt =>
         {
-            var dbPath = AppPaths.DatabasePath; // your existing helper
+            var dbPath = AppPaths.GetDbPath();
             opt.UseSqlite($"Data Source={dbPath}");
         });
+
+        services.AddSingleton(new CurrentUserContext
+        {
+            Username = Environment.UserName,
+            Role = UserRole.Admin,
+            CanEditAllDispatchCenters = true
+        });
+
+        services.AddSingleton<IAuthorizationService, AuthorizationService>();
+        services.AddSingleton<INavigationService, NavigationService>();
 
         services.AddSingleton<MainWindow>();
     }

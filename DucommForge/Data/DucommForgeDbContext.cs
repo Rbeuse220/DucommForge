@@ -12,8 +12,22 @@ public class DucommForgeDbContext : DbContext
     public DbSet<Station> Stations => Set<Station>();
     public DbSet<Unit> Units => Set<Unit>();
 
+    // DI constructor (used when created via AddDbContext)
+    public DucommForgeDbContext(DbContextOptions<DucommForgeDbContext> options)
+        : base(options)
+    {
+    }
+
+    // Parameterless constructor fallback (only if something new's it up manually)
+    public DucommForgeDbContext()
+    {
+    }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
+        if (optionsBuilder.IsConfigured)
+            return;
+
         var dbPath = AppPaths.GetDbPath();
         optionsBuilder.UseSqlite($"Data Source={dbPath}");
     }
@@ -25,19 +39,22 @@ public class DucommForgeDbContext : DbContext
             .HasIndex(x => x.Code)
             .IsUnique();
 
-        // Agency: (DispatchCenterId, Short) unique
         modelBuilder.Entity<Agency>()
-            .HasIndex(x => new { x.DispatchCenterId, x.Short })
-            .IsUnique();
+            .HasOne(a => a.DispatchCenter)
+            .WithMany()
+            .HasForeignKey(a => a.DispatchCenterId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        // Station: (AgencyId, StationId) unique
         modelBuilder.Entity<Station>()
-            .HasIndex(x => new { x.AgencyId, x.StationId })
-            .IsUnique();
+            .HasOne(s => s.Agency)
+            .WithMany()
+            .HasForeignKey(s => s.AgencyId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        // Unit: (StationKey, UnitId) unique
         modelBuilder.Entity<Unit>()
-            .HasIndex(x => new { x.StationKey, x.UnitId })
-            .IsUnique();
+            .HasOne(u => u.Station)
+            .WithMany()
+            .HasForeignKey(u => u.StationKey)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

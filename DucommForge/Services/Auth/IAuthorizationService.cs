@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace DucommForge.Services.Auth;
 
-namespace DucommForge.Services.Auth
+public interface IAuthorizationService
 {
-    internal class IAuthorizationService
-    {
-    }
+    bool CanEditAgency(int dispatchCenterId);
 }

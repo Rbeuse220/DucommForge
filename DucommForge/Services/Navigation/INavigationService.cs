@@ -1,10 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using DucommForge.ViewModels.Common;
 
-namespace DucommForge.Services.Navigation
+namespace DucommForge.Services.Navigation;
+
+public interface INavigationService
 {
-    internal class INavigationService
-    {
-    }
+    ViewModelBase? Current { get; }
+
+    void Navigate(ViewModelBase viewModel, NavigationState? returnState = null);
+    void GoBack();
+
+    NavigationState? CurrentReturnState { get; }
 }
