@@ -10,6 +10,9 @@
             <views:AgenciesView />
         </DataTemplate>
 
-    </Application.Resources>
+        <DataTemplate DataType="{x:Type vm:AgencyDetailViewModel}">
+            <views:AgencyDetailView />
+        </DataTemplate>
 
+    </Application.Resources>
 </Application>

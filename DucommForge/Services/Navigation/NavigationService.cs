@@ -14,7 +14,8 @@ public sealed class NavigationService : ViewModelBase, INavigationService
         private set => SetProperty(ref _current, value);
     }
 
-    public NavigationState? CurrentReturnState => _stack.Count > 0 ? _stack.Peek().state : null;
+    public NavigationState? CurrentReturnState =>
+        _stack.Count > 0 ? _stack.Peek().state : null;
 
     public void Navigate(ViewModelBase viewModel, NavigationState? returnState = null)
     {
@@ -24,12 +25,25 @@ public sealed class NavigationService : ViewModelBase, INavigationService
         }
 
         Current = viewModel;
+
+        if (viewModel is INavigationAware aware)
+        {
+            aware.OnNavigatedTo(null);
+        }
     }
 
     public void GoBack()
     {
-        if (_stack.Count == 0) return;
-        var (vm, _) = _stack.Pop();
+        if (_stack.Count == 0)
+            return;
+
+        var (vm, state) = _stack.Pop();
+
         Current = vm;
+
+        if (vm is INavigationAware aware)
+        {
+            aware.OnNavigatedTo(state);
+        }
     }
 }

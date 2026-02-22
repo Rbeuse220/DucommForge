@@ -1,22 +1,15 @@
 ﻿namespace DucommForge.Services.Auth;
 
-public sealed class AuthorizationService : IAuthorizationService
+public sealed class AuthorizationService(CurrentUserContext user) : IAuthorizationService
 {
-    private readonly CurrentUserContext _user;
-
-    public AuthorizationService(CurrentUserContext user)
-    {
-        _user = user;
-    }
-
     public bool CanEditAgency(int dispatchCenterId)
     {
-        if (_user.Role == UserRole.SuperAdmin) return true;
-        if (_user.Role == UserRole.Admin) return true;
+        if (user.Role == UserRole.SuperAdmin) return true;
+        if (user.Role == UserRole.Admin) return true;
 
-        if (_user.Role == UserRole.Editor)
+        if (user.Role == UserRole.Editor)
         {
-            return _user.CanEditAllDispatchCenters || _user.EditableDispatchCenterIds.Contains(dispatchCenterId);
+            return user.CanEditAllDispatchCenters || user.EditableDispatchCenterIds.Contains(dispatchCenterId);
         }
 
         return false;

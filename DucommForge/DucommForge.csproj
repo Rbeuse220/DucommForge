@@ -31,7 +31,6 @@
 		<Folder Include="Converters\" />
 		<Folder Include="Resources\" />
 		<Folder Include="Services\Agencies\Dtos\" />
-		<Folder Include="Services\Navigation\" />
 		<Folder Include="ViewModels\Common\" />
 	</ItemGroup>
 

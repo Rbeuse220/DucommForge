@@ -1,11 +1,10 @@
-﻿using System.Linq;
-using System.Windows;
-using DucommForge.Composition;
+﻿using DucommForge.Composition;
 using DucommForge.Data;
 using DucommForge.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Windows;
 
 namespace DucommForge;
 
@@ -35,12 +34,14 @@ public partial class App : Application
     private void EnsureDatabase()
     {
         using var scope = _host!.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<DucommForgeDbContext>();
+        var factory = scope.ServiceProvider
+            .GetRequiredService<IDbContextFactory<DucommForgeDbContext>>();
 
-        // Apply migrations (creates tables)
+        using var db = factory.CreateDbContext();
+
         db.Database.Migrate();
 
-        // Seed DUCOMM if missing
+        // Ensure base dispatch center exists
         if (!db.DispatchCenters.Any(x => x.Code == "DUCOMM"))
         {
             db.DispatchCenters.Add(new DispatchCenter
@@ -52,5 +53,69 @@ public partial class App : Application
 
             db.SaveChanges();
         }
+
+#if DEBUG
+        SeedDevData(factory);
+#endif
     }
+
+#if DEBUG
+    private static void SeedDevData(IDbContextFactory<DucommForgeDbContext> factory)
+    {
+        using var db = factory.CreateDbContext();
+
+        if (db.Agencies.Any())
+            return;
+
+        var ducomm = db.DispatchCenters.First(x => x.Code == "DUCOMM");
+
+        var alt = new DispatchCenter
+        {
+            Code = "ALT",
+            Name = "Alternate Center",
+            Active = true
+        };
+
+        db.DispatchCenters.Add(alt);
+        db.SaveChanges();
+
+        db.AppSettings.Add(new AppSetting
+        {
+            Key = "CurrentDispatchCenterCode",
+            Value = "DUCOMM"
+        });
+
+        db.Agencies.AddRange(
+            new Agency
+            {
+                DispatchCenterId = ducomm.DispatchCenterId,
+                Short = "BAF",
+                Name = "Bartlett Fire",
+                Type = "Fire",
+                Owned = true,
+                Active = true
+            },
+            new Agency
+            {
+                DispatchCenterId = ducomm.DispatchCenterId,
+                Short = "CSF",
+                Name = "Carol Stream Fire",
+                Type = "Fire",
+                Owned = false,
+                Active = true
+            },
+            new Agency
+            {
+                DispatchCenterId = alt.DispatchCenterId,
+                Short = "ZZF",
+                Name = "Zeta Zone Fire",
+                Type = "Fire",
+                Owned = false,
+                Active = true
+            }
+        );
+
+        db.SaveChanges();
+    }
+#endif
 }

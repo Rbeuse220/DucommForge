@@ -2,6 +2,7 @@
 using DucommForge.Services.Auth;
 using DucommForge.Services.Navigation;
 using DucommForge.ViewModels;
+using DucommForge.ViewModels.Agencies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,7 +14,7 @@ public static class ServiceRegistration
 {
     public static void Configure(HostBuilderContext ctx, IServiceCollection services)
     {
-        services.AddDbContext<DucommForgeDbContext>(opt =>
+        services.AddDbContextFactory<DucommForgeDbContext>(opt =>
         {
             var dbPath = AppPaths.GetDbPath();
             opt.UseSqlite($"Data Source={dbPath}");
@@ -28,6 +29,13 @@ public static class ServiceRegistration
 
         services.AddSingleton<IAuthorizationService, AuthorizationService>();
         services.AddSingleton<INavigationService, NavigationService>();
+
+        services.AddTransient<AgencyQueryService>();
+        services.AddTransient<AgencyDetailQueryService>();
+
+        services.AddTransient<IAgencyDetailViewModelFactory, AgencyDetailViewModelFactory>();
+
+        services.AddTransient<AgenciesViewModel>();
 
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
