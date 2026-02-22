@@ -1,16 +1,13 @@
 ﻿using System.Windows;
+using DucommForge.ViewModels;
 
 namespace DucommForge;
 
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    public MainWindow(MainWindowViewModel vm)
     {
         InitializeComponent();
-    }
-
-    private void Exit_Click(object sender, RoutedEventArgs e)
-    {
-        Close();
+        DataContext = vm;
     }
 }

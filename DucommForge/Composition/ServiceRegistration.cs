@@ -1,10 +1,11 @@
-﻿using System;
-using DucommForge.Data;
+﻿using DucommForge.Data;
 using DucommForge.Services.Auth;
 using DucommForge.Services.Navigation;
+using DucommForge.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System;
 
 namespace DucommForge.Composition;
 
@@ -28,6 +29,7 @@ public static class ServiceRegistration
         services.AddSingleton<IAuthorizationService, AuthorizationService>();
         services.AddSingleton<INavigationService, NavigationService>();
 
+        services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
     }
 }

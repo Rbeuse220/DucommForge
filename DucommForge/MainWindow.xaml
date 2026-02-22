@@ -1,15 +1,43 @@
 ﻿<Window x:Class="DucommForge.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:legacy="clr-namespace:DucommForge.Views.Legacy"
-        Title="DucommForge" Height="650" Width="1050">
+        xmlns:vm="clr-namespace:DucommForge.ViewModels"
+        Title="DucommForge"
+        Height="700"
+        Width="1200">
+
     <DockPanel>
+
+        <!-- Top Menu -->
         <Menu DockPanel.Dock="Top">
+
             <MenuItem Header="_File">
-                <MenuItem Header="Exit" Click="Exit_Click"/>
+                <MenuItem Header="Login" />
+                <MenuItem Header="Logout" />
+                <Separator />
+                <MenuItem Header="Exit" Command="{Binding ExitCommand}" />
             </MenuItem>
+
+            <MenuItem Header="_Browse">
+                <MenuItem Header="Dispatch Centers" IsEnabled="False" />
+                <MenuItem Header="Agencies" Command="{Binding NavigateAgenciesCommand}" />
+                <MenuItem Header="Stations" IsEnabled="False" />
+                <MenuItem Header="Units" IsEnabled="False" />
+            </MenuItem>
+
+            <MenuItem Header="_Admin">
+                <MenuItem Header="Users" IsEnabled="False" />
+                <MenuItem Header="Config" IsEnabled="False" />
+            </MenuItem>
+
+            <MenuItem Header="_Help">
+                <MenuItem Header="About" IsEnabled="False" />
+            </MenuItem>
+
         </Menu>
 
-        <legacy:LegacyTabsView />
+        <!-- Main navigation region -->
+        <ContentControl Content="{Binding CurrentView}" />
+
     </DockPanel>
 </Window>
