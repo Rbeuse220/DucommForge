@@ -36,26 +36,29 @@ public sealed class AgencyDetailViewModel : ViewModelBase, INavigationAware
 
         BackCommand = new AsyncRelayCommand(() => _navigation.GoBack());
         EditCommand = new AsyncRelayCommand(NavigateEditAsync, () => CanEdit);
-
-        _ = LoadAsync();
     }
 
     public void OnNavigatedTo(NavigationState? state)
     {
-        if (state == null) return;
-
-        // Capture list state whenever we see it, so we can merge it with edit payloads.
-        if (state.AgencyScope != null || state.SearchText != null || state.ActiveOnly != null || state.SelectedAgencyId != null)
+        if (state != null)
         {
-            _listReturnState = state;
+            if (state.AgencyScope != null ||
+                state.SearchText != null ||
+                state.ActiveOnly != null ||
+                state.SelectedAgencyId != null)
+            {
+                _listReturnState = state;
+            }
+
+            if (state.EditedAgencyId is int editedId && editedId == AgencyId)
+            {
+                var merged = MergeListStateWithEditPayload(_listReturnState, state);
+                _navigation.GoBack(merged);
+                return;
+            }
         }
 
-        // If returning from Edit, immediately return to list with merged state.
-        if (state.EditedAgencyId is int editedId && editedId == AgencyId)
-        {
-            var merged = MergeListStateWithEditPayload(_listReturnState, state);
-            _navigation.GoBack(merged);
-        }
+        _ = LoadAsync();
     }
 
     private static NavigationState MergeListStateWithEditPayload(NavigationState? listState, NavigationState editState)

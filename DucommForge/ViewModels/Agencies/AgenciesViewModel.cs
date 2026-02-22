@@ -51,8 +51,6 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
             await RefreshAsync();
         });
-
-        _ = RefreshAsync();
     }
 
     public string Title => "Agencies";
@@ -118,7 +116,11 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
     public void OnNavigatedTo(NavigationState? state)
     {
-        if (state == null) return;
+        if (state == null)
+        {
+            _ = RefreshAsync();
+            return;
+        }
 
         if (state.AgencyScope is int scopeValue && (scopeValue == 0 || scopeValue == 1))
         {
@@ -128,13 +130,21 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         SearchText = state.SearchText;
         ActiveOnly = state.ActiveOnly ?? true;
 
+        // Always prefer selecting the edited item when present.
+        if (state.EditedAgencyId is int editedId)
+        {
+            _pendingSelectAgencyId = editedId;
+        }
+        else
+        {
+            _pendingSelectAgencyId = state.SelectedAgencyId;
+        }
+
         if (TryApplyEditStateToList(state))
         {
-            _pendingSelectAgencyId = state.EditedAgencyId ?? state.SelectedAgencyId;
             return;
         }
 
-        _pendingSelectAgencyId = state.SelectedAgencyId;
         _ = RefreshAsync();
     }
 
@@ -143,7 +153,10 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         if (state.EditedAgencyId is not int id)
             return false;
 
-        if (state.EditedName == null || state.EditedType == null || state.EditedOwned == null || state.EditedActive == null)
+        if (state.EditedName == null ||
+            state.EditedType == null ||
+            state.EditedOwned == null ||
+            state.EditedActive == null)
             return false;
 
         var row = Rows.FirstOrDefault(r => r.AgencyId == id);
@@ -170,12 +183,15 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
             return true;
         }
 
+        // Row missing: if it should now be included, fall back to normal refresh
+        // so the row can be loaded with all list-only fields (ex: DispatchCenterCode).
         if (shouldBeIncluded)
         {
-            _ = RefreshAsync();
-            return true;
+            _pendingSelectAgencyId = id;
+            return false;
         }
 
+        // Missing and excluded: nothing to do, and no refresh required.
         return true;
     }
 
@@ -190,10 +206,12 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
         var needle = s.Trim();
 
-        if (!string.IsNullOrEmpty(shortCode) && shortCode.Contains(needle, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(shortCode) &&
+            shortCode.Contains(needle, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        if (!string.IsNullOrEmpty(name) && name.Contains(needle, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(name) &&
+            name.Contains(needle, StringComparison.OrdinalIgnoreCase))
             return true;
 
         return false;

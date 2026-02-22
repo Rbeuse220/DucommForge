@@ -30,26 +30,35 @@ public sealed class AsyncRelayCommand : ICommand
 
     public event EventHandler? CanExecuteChanged;
 
+    // Optional hook so async failures are observed and can be handled/logged by the caller.
+    public event EventHandler<Exception>? ExecutionFailed;
+
     public bool CanExecute(object? parameter)
     {
         if (_isExecuting) return false;
         return _canExecute?.Invoke() ?? true;
     }
 
-    public async void Execute(object? parameter)
+    // ICommand.Execute must be void. Do not use async void here.
+    public void Execute(object? parameter)
     {
-        await ExecuteAsync();
+        _ = ExecuteAsync();
     }
 
     public async Task ExecuteAsync()
     {
         if (!CanExecute(null)) return;
 
+        _isExecuting = true;
+        RaiseCanExecuteChanged();
+
         try
         {
-            _isExecuting = true;
-            RaiseCanExecuteChanged();
             await _execute();
+        }
+        catch (Exception ex)
+        {
+            ExecutionFailed?.Invoke(this, ex);
         }
         finally
         {

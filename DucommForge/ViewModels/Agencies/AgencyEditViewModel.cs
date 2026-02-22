@@ -5,7 +5,7 @@ using DucommForge.ViewModels.Common;
 
 namespace DucommForge.ViewModels.Agencies;
 
-public sealed class AgencyEditViewModel : ViewModelBase
+public sealed class AgencyEditViewModel : ViewModelBase, INavigationAware
 {
     private readonly AgencyDetailQueryService _query;
     private readonly AgencyCommandService _commands;
@@ -30,7 +30,10 @@ public sealed class AgencyEditViewModel : ViewModelBase
 
         SaveCommand = new AsyncRelayCommand(SaveAsync, CanSave);
         CancelCommand = new AsyncRelayCommand(() => _navigation.GoBack());
+    }
 
+    public void OnNavigatedTo(NavigationState? state)
+    {
         _ = LoadAsync();
     }
 
