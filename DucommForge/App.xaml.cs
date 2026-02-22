@@ -10,7 +10,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
         //db.Database.EnsureCreated();
 
         // Seed the primary dispatch center (DUCOMM) if missing

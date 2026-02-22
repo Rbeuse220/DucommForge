@@ -21,4 +21,16 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Composition\" />
+    <Folder Include="Converters\" />
+    <Folder Include="Resources\" />
+    <Folder Include="Services\Agencies\Dtos\" />
+    <Folder Include="Services\Auth\" />
+    <Folder Include="Services\Navigation\" />
+    <Folder Include="ViewModels\Common\" />
+    <Folder Include="ViewModels\Agencies\" />
+    <Folder Include="Views\Agencies\" />
+  </ItemGroup>
+
 </Project>

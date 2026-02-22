@@ -1,4 +1,4 @@
-﻿namespace DucommForge.Data;
+﻿namespace DucommForge.Data.Entities;
 
 public class Agency
 {

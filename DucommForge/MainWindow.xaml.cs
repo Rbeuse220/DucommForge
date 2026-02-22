@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using DucommForge.Data;
+using DucommForge.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DucommForge;
@@ -42,7 +43,7 @@ public partial class MainWindow : Window
     // --------------------
     private void LoadConfig()
     {
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         var grafana = db.AppSettings.SingleOrDefault(x => x.Key == "GrafanaBaseUrl");
         GrafanaUrlTextBox.Text = grafana?.Value ?? "";
@@ -59,7 +60,7 @@ public partial class MainWindow : Window
         var selectedCode = (CurrentDispatchCenterComboBox.SelectedItem as string ?? "").Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(selectedCode)) selectedCode = "";
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         UpsertAppSetting(db, "GrafanaBaseUrl", url);
         UpsertAppSetting(db, "CurrentDispatchCenterCode", selectedCode);
@@ -85,7 +86,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(selectedCode))
             return;
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
         UpsertAppSetting(db, "CurrentDispatchCenterCode", selectedCode);
         db.SaveChanges();
 
@@ -99,7 +100,7 @@ public partial class MainWindow : Window
         ConfigStatusText.Text = $"Scope set to {selectedCode}.";
     }
 
-    private static void UpsertAppSetting(ForgeDbContext db, string key, string value)
+    private static void UpsertAppSetting(DucommForgeDbContext db, string key, string value)
     {
         var setting = db.AppSettings.SingleOrDefault(x => x.Key == key);
         if (setting == null)
@@ -114,7 +115,7 @@ public partial class MainWindow : Window
 
     private void ApplyDispatchCenterScopeFromSetting()
     {
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         if (string.IsNullOrWhiteSpace(_currentDispatchCenterCode))
         {
@@ -177,7 +178,7 @@ public partial class MainWindow : Window
     // --------------------
     private void LoadDispatchCenters()
     {
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         var all = db.DispatchCenters.AsNoTracking()
             .OrderBy(x => x.Code)
@@ -200,7 +201,7 @@ public partial class MainWindow : Window
     {
         var q = (DispatchCenterSearchTextBox.Text ?? "").Trim().ToUpperInvariant();
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
         var query = db.DispatchCenters.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(q))
@@ -231,7 +232,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         foreach (var dc in selected)
         {
@@ -270,7 +271,7 @@ public partial class MainWindow : Window
             }
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         foreach (var dc in _dispatchCenters)
         {
@@ -309,7 +310,7 @@ public partial class MainWindow : Window
     // --------------------
     private void LoadAgencies()
     {
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         if (!_currentDispatchCenterId.HasValue)
         {
@@ -349,7 +350,7 @@ public partial class MainWindow : Window
     {
         var q = (AgencySearchTextBox.Text ?? "").Trim().ToUpperInvariant();
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         if (!_currentDispatchCenterId.HasValue)
         {
@@ -399,7 +400,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         foreach (var a in selected)
         {
@@ -442,7 +443,7 @@ public partial class MainWindow : Window
             }
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         foreach (var a in _agencies)
         {
@@ -485,7 +486,7 @@ public partial class MainWindow : Window
     // --------------------
     private void LoadStations()
     {
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         if (!_currentDispatchCenterId.HasValue)
         {
@@ -517,7 +518,7 @@ public partial class MainWindow : Window
     {
         var q = (StationSearchTextBox.Text ?? "").Trim().ToUpperInvariant();
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         if (!_currentDispatchCenterId.HasValue)
         {
@@ -579,7 +580,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         foreach (var s in selected)
         {
@@ -607,7 +608,7 @@ public partial class MainWindow : Window
             }
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         if (!_currentDispatchCenterId.HasValue)
         {
@@ -708,7 +709,7 @@ public partial class MainWindow : Window
 
     private void LoadUnitsForStation(int stationKey)
     {
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         var all = db.Units.AsNoTracking()
             .Where(u => u.StationKey == stationKey)
@@ -798,7 +799,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        using var db = new ForgeDbContext();
+        using var db = new DucommForgeDbContext();
 
         // Ensure station exists (FK safety)
         var stationExists = db.Stations.AsNoTracking().Any(s => s.StationKey == stationKey);

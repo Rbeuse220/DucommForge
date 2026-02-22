@@ -2,19 +2,16 @@
 using DucommForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
 namespace DucommForge.Migrations
 {
-    [DbContext(typeof(ForgeDbContext))]
-    [Migration("20260221215505_InitSchema")]
-    partial class InitSchema
+    [DbContext(typeof(DucommForgeDbContext))]
+    partial class ForgeDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");

@@ -1,9 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DucommForge.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 using System.IO;
 
 namespace DucommForge.Data;
 
-public class ForgeDbContext : DbContext
+public class DucommForgeDbContext : DbContext
 {
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<DispatchCenter> DispatchCenters => Set<DispatchCenter>();
@@ -12,7 +13,7 @@ public class ForgeDbContext : DbContext
     public DbSet<Unit> Units => Set<Unit>();
     public string DbPath { get; }
 
-    public ForgeDbContext()
+    public DucommForgeDbContext()
     {
         var dir = AppPaths.AppDataDir;
         Directory.CreateDirectory(dir);
