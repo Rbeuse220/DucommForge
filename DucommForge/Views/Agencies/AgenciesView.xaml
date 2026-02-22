@@ -23,7 +23,7 @@
                         Margin="6,0,0,0"
                         Command="{Binding RefreshCommand}"/>
 
-                <Button Content="{Binding Scope}"
+                <Button Content="{Binding ScopeLabel}"
                         Margin="6,0,0,0"
                         Command="{Binding ToggleScopeCommand}"/>
             </StackPanel>

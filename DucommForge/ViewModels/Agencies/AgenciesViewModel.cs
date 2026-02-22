@@ -1,5 +1,8 @@
-﻿using System.Collections.ObjectModel;
+using System;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Threading;
 using DucommForge.Data;
 using DucommForge.Services.Auth;
 using DucommForge.Services.Navigation;
@@ -14,6 +17,11 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
     private readonly IAuthorizationService _auth;
     private readonly IAgencyDetailViewModelFactory _detailFactory;
 
+    private readonly DispatcherTimer _refreshTimer;
+
+    private string _lastQueryKey = string.Empty;
+    private int? _pendingSelectAgencyId;
+
     public AgenciesViewModel(
         AgencyQueryService query,
         INavigationService navigation,
@@ -26,6 +34,16 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         _detailFactory = detailFactory;
 
         Rows = new ObservableCollection<AgencyRowViewModel>();
+
+        _refreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(300)
+        };
+        _refreshTimer.Tick += async (_, _) =>
+        {
+            _refreshTimer.Stop();
+            await RefreshAsync();
+        };
 
         RefreshCommand = new RelayCommand(async () => await RefreshAsync());
 
@@ -49,8 +67,19 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
     public AgencyScope Scope
     {
         get => _scope;
-        set => SetProperty(ref _scope, value);
+        set
+        {
+            if (!SetProperty(ref _scope, value)) return;
+            Raise(nameof(ScopeLabel));
+        }
     }
+
+    public string ScopeLabel => Scope switch
+    {
+        AgencyScope.CurrentDispatchCenter => "Current dispatch center",
+        AgencyScope.AllDispatchCenters => "All dispatch centers",
+        _ => Scope.ToString()
+    };
 
     private string? _dispatchCenterScopeCodeOverride;
     public string? DispatchCenterScopeCodeOverride
@@ -63,14 +92,22 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
     public string? SearchText
     {
         get => _searchText;
-        set => SetProperty(ref _searchText, value);
+        set
+        {
+            if (!SetProperty(ref _searchText, value)) return;
+            ScheduleRefresh();
+        }
     }
 
-    private bool _activeOnly;
+    private bool _activeOnly = true;
     public bool ActiveOnly
     {
         get => _activeOnly;
-        set => SetProperty(ref _activeOnly, value);
+        set
+        {
+            if (!SetProperty(ref _activeOnly, value)) return;
+            ScheduleRefresh();
+        }
     }
 
     private AgencyRowViewModel? _selected;
@@ -83,7 +120,11 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
     public RelayCommand RefreshCommand { get; }
     public RelayCommand ToggleScopeCommand { get; }
 
-    private int? _pendingSelectAgencyId;
+    private void ScheduleRefresh()
+    {
+        _refreshTimer.Stop();
+        _refreshTimer.Start();
+    }
 
     public void OnNavigatedTo(NavigationState? state)
     {
@@ -96,7 +137,7 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
         DispatchCenterScopeCodeOverride = state.DispatchCenterScopeCode;
         SearchText = state.SearchText;
-        ActiveOnly = state.ActiveOnly ?? false;
+        ActiveOnly = state.ActiveOnly ?? true;
 
         _pendingSelectAgencyId = state.SelectedAgencyId;
 
@@ -117,6 +158,12 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
     private async Task RefreshAsync()
     {
+        var queryKey = $"{(int)Scope}|{DispatchCenterScopeCodeOverride}|{SearchText}|{ActiveOnly}";
+        if (queryKey == _lastQueryKey && _pendingSelectAgencyId == null)
+            return;
+
+        _lastQueryKey = queryKey;
+
         var items = await _query.GetAgenciesAsync(
             scope: Scope,
             dispatchCenterScopeCodeOverride: DispatchCenterScopeCodeOverride,
