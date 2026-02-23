@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 using DucommForge.Data;
 using DucommForge.Services.Auth;
 using DucommForge.Services.Navigation;
@@ -14,6 +16,7 @@ public sealed class AgencyDetailViewModel : ViewModelBase, INavigationAware
     private readonly IAgencyEditViewModelFactory _editFactory;
 
     private NavigationState? _listReturnState;
+    private CancellationTokenSource? _loadCts;
 
     public int AgencyId { get; }
 
@@ -58,7 +61,17 @@ public sealed class AgencyDetailViewModel : ViewModelBase, INavigationAware
             }
         }
 
-        _ = LoadAsync();
+        StartLoad();
+    }
+
+    private void StartLoad()
+    {
+        var cts = new CancellationTokenSource();
+        var prior = Interlocked.Exchange(ref _loadCts, cts);
+        prior?.Cancel();
+        prior?.Dispose();
+
+        _ = LoadAsync(cts.Token);
     }
 
     private static NavigationState MergeListStateWithEditPayload(NavigationState? listState, NavigationState editState)
@@ -152,29 +165,50 @@ public sealed class AgencyDetailViewModel : ViewModelBase, INavigationAware
         set => SetProperty(ref _dispatchCenterId, value);
     }
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(CancellationToken cancellationToken)
     {
-        var item = await _query.GetAgencyAsync(AgencyId);
-
-        if (item == null)
+        try
         {
-            Title = $"Agency Details (Not Found: {AgencyId})";
-            CanEdit = false;
-            return;
+            var item = await _query.GetAgencyAsync(AgencyId, cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            if (item == null)
+            {
+                Title = $"Agency Details (Not Found: {AgencyId})";
+                CanEdit = false;
+                return;
+            }
+
+            Short = item.Short;
+            Name = item.Name;
+            Type = item.Type;
+            Owned = item.Owned;
+            Active = item.Active;
+            DispatchCenterCode = item.DispatchCenterCode;
+            DispatchCenterName = item.DispatchCenterName;
+            DispatchCenterId = item.DispatchCenterId;
+
+            CanEdit = _auth.CanEditAgency(item.DispatchCenterId);
+
+            Title = $"Agency Details: {Short}";
         }
-
-        Short = item.Short;
-        Name = item.Name;
-        Type = item.Type;
-        Owned = item.Owned;
-        Active = item.Active;
-        DispatchCenterCode = item.DispatchCenterCode;
-        DispatchCenterName = item.DispatchCenterName;
-        DispatchCenterId = item.DispatchCenterId;
-
-        CanEdit = _auth.CanEditAgency(item.DispatchCenterId);
-
-        Title = $"Agency Details: {Short}";
+        catch (OperationCanceledException)
+        {
+            // Expected when navigating quickly.
+        }
+        catch (Exception ex)
+        {
+            Title = $"Agency Details (Error: {AgencyId})";
+            CanEdit = false;
+            Name = ex.Message;
+        }
+        finally
+        {
+            var cts = Interlocked.Exchange(ref _loadCts, null);
+            cts?.Dispose();
+        }
     }
 
     private Task NavigateEditAsync()

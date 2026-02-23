@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 using DucommForge.Data;
 using DucommForge.Services.Navigation;
 using DucommForge.ViewModels.Common;
@@ -10,6 +12,8 @@ public sealed class AgencyEditViewModel : ViewModelBase, INavigationAware
     private readonly AgencyDetailQueryService _query;
     private readonly AgencyCommandService _commands;
     private readonly INavigationService _navigation;
+
+    private CancellationTokenSource? _loadCts;
 
     public int AgencyId { get; }
 
@@ -34,7 +38,17 @@ public sealed class AgencyEditViewModel : ViewModelBase, INavigationAware
 
     public void OnNavigatedTo(NavigationState? state)
     {
-        _ = LoadAsync();
+        StartLoad();
+    }
+
+    private void StartLoad()
+    {
+        var cts = new CancellationTokenSource();
+        var prior = Interlocked.Exchange(ref _loadCts, cts);
+        prior?.Cancel();
+        prior?.Dispose();
+
+        _ = LoadAsync(cts.Token);
     }
 
     private string _title = "Edit Agency";
@@ -127,14 +141,17 @@ public sealed class AgencyEditViewModel : ViewModelBase, INavigationAware
         return true;
     }
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(CancellationToken cancellationToken)
     {
         IsBusy = true;
         ErrorMessage = string.Empty;
 
         try
         {
-            var item = await _query.GetAgencyAsync(AgencyId);
+            var item = await _query.GetAgencyAsync(AgencyId, cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
 
             if (item == null)
             {
@@ -153,9 +170,20 @@ public sealed class AgencyEditViewModel : ViewModelBase, INavigationAware
 
             Title = $"Edit Agency: {Short}";
         }
+        catch (OperationCanceledException)
+        {
+            // Expected when navigating quickly.
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
         finally
         {
             IsBusy = false;
+
+            var cts = Interlocked.Exchange(ref _loadCts, null);
+            cts?.Dispose();
         }
     }
 

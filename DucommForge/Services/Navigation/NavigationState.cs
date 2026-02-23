@@ -18,4 +18,14 @@ public sealed class NavigationState
     public string? EditedType { get; init; }
     public bool? EditedOwned { get; init; }
     public bool? EditedActive { get; init; }
+
+    // Post-create optimization payload
+    public int? CreatedAgencyId { get; init; }
+    public int? CreatedDispatchCenterId { get; init; }
+    public string? CreatedDispatchCenterCode { get; init; }
+    public string? CreatedShort { get; init; }
+    public string? CreatedName { get; init; }
+    public string? CreatedType { get; init; }
+    public bool? CreatedOwned { get; init; }
+    public bool? CreatedActive { get; init; }
 }

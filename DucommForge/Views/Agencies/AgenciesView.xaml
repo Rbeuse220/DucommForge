@@ -19,6 +19,9 @@
                        VerticalAlignment="Center"/>
 
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                <Button Content="Create"
+                        Command="{Binding CreateCommand}" />
+
                 <Button Content="Refresh"
                         Margin="6,0,0,0"
                         Command="{Binding RefreshCommand}"/>

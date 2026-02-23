@@ -1,9 +1,11 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using DucommForge.Data;
+using DucommForge.Services.Auth;
 using DucommForge.Services.Navigation;
 using DucommForge.ViewModels.Common;
 
@@ -12,22 +14,36 @@ namespace DucommForge.ViewModels.Agencies;
 public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 {
     private readonly AgencyQueryService _query;
+    private readonly CurrentDispatchCenterService _currentCenter;
+    private readonly IAuthorizationService _auth;
     private readonly INavigationService _navigation;
     private readonly IAgencyDetailViewModelFactory _detailFactory;
+    private readonly IAgencyCreateViewModelFactory _createFactory;
 
     private readonly DispatcherTimer _refreshTimer;
 
     private string _lastQueryKey = string.Empty;
     private int? _pendingSelectAgencyId;
 
+    private CancellationTokenSource? _refreshCts;
+    private CancellationTokenSource? _centerCts;
+
+    private DispatchCenterInfo? _center;
+
     public AgenciesViewModel(
         AgencyQueryService query,
+        CurrentDispatchCenterService currentCenter,
+        IAuthorizationService auth,
         INavigationService navigation,
-        IAgencyDetailViewModelFactory detailFactory)
+        IAgencyDetailViewModelFactory detailFactory,
+        IAgencyCreateViewModelFactory createFactory)
     {
         _query = query;
+        _currentCenter = currentCenter;
+        _auth = auth;
         _navigation = navigation;
         _detailFactory = detailFactory;
+        _createFactory = createFactory;
 
         Rows = new ObservableCollection<AgencyRowViewModel>();
 
@@ -35,22 +51,15 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         {
             Interval = TimeSpan.FromMilliseconds(300)
         };
-        _refreshTimer.Tick += async (_, _) =>
+        _refreshTimer.Tick += (_, _) =>
         {
             _refreshTimer.Stop();
-            await RefreshAsync();
+            _ = RefreshAsync();
         };
 
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-
-        ToggleScopeCommand = new AsyncRelayCommand(async () =>
-        {
-            Scope = Scope == AgencyScope.CurrentDispatchCenter
-                ? AgencyScope.AllDispatchCenters
-                : AgencyScope.CurrentDispatchCenter;
-
-            await RefreshAsync();
-        });
+        RefreshCommand = new AsyncRelayCommand(() => RefreshAsync(force: true));
+        ToggleScopeCommand = new AsyncRelayCommand(ToggleScopeAsync);
+        CreateCommand = new AsyncRelayCommand(NavigateCreateAsync, () => CanCreate);
     }
 
     public string Title => "Agencies";
@@ -105,8 +114,30 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         set => SetProperty(ref _selected, value);
     }
 
+    private bool _canCreate;
+    public bool CanCreate
+    {
+        get => _canCreate;
+        private set
+        {
+            if (!SetProperty(ref _canCreate, value)) return;
+            CreateCommand.RaiseCanExecuteChanged();
+        }
+    }
+
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand ToggleScopeCommand { get; }
+    public AsyncRelayCommand CreateCommand { get; }
+
+    private Task ToggleScopeAsync()
+    {
+        Scope = Scope == AgencyScope.CurrentDispatchCenter
+            ? AgencyScope.AllDispatchCenters
+            : AgencyScope.CurrentDispatchCenter;
+
+        ScheduleRefresh();
+        return Task.CompletedTask;
+    }
 
     private void ScheduleRefresh()
     {
@@ -116,6 +147,8 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
 
     public void OnNavigatedTo(NavigationState? state)
     {
+        EnsureCenterLoaded();
+
         if (state == null)
         {
             _ = RefreshAsync();
@@ -130,8 +163,11 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         SearchText = state.SearchText;
         ActiveOnly = state.ActiveOnly ?? true;
 
-        // Always prefer selecting the edited item when present.
-        if (state.EditedAgencyId is int editedId)
+        if (state.CreatedAgencyId is int createdId)
+        {
+            _pendingSelectAgencyId = createdId;
+        }
+        else if (state.EditedAgencyId is int editedId)
         {
             _pendingSelectAgencyId = editedId;
         }
@@ -140,12 +176,115 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
             _pendingSelectAgencyId = state.SelectedAgencyId;
         }
 
+        if (TryApplyCreateStateToList(state))
+            return;
+
         if (TryApplyEditStateToList(state))
+            return;
+
+        _ = RefreshAsync();
+    }
+
+    private void EnsureCenterLoaded()
+    {
+        if (_center != null)
         {
+            CanCreate = _auth.CanCreateAgency(_center.DispatchCenterId);
             return;
         }
 
-        _ = RefreshAsync();
+        var cts = new CancellationTokenSource();
+        var prior = Interlocked.Exchange(ref _centerCts, cts);
+        prior?.Cancel();
+        prior?.Dispose();
+
+        _ = LoadCenterAsync(cts.Token);
+    }
+
+    private async Task LoadCenterAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var center = await _currentCenter.GetCurrentAsync(cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            _center = center;
+            if (center != null)
+            {
+                CanCreate = _auth.CanCreateAgency(center.DispatchCenterId);
+            }
+            else
+            {
+                CanCreate = false;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected.
+        }
+        catch
+        {
+            CanCreate = false;
+        }
+        finally
+        {
+            var cts = Interlocked.Exchange(ref _centerCts, null);
+            cts?.Dispose();
+        }
+    }
+
+    private bool TryApplyCreateStateToList(NavigationState state)
+    {
+        if (state.CreatedAgencyId is not int id)
+            return false;
+
+        if (state.CreatedShort == null ||
+            state.CreatedName == null ||
+            state.CreatedType == null ||
+            state.CreatedOwned == null ||
+            state.CreatedActive == null)
+            return false;
+
+        var existing = Rows.FirstOrDefault(r => r.AgencyId == id);
+        if (existing != null)
+        {
+            Selected = existing;
+            return true;
+        }
+
+        var shouldBeIncluded = MatchesFilters(
+            shortCode: state.CreatedShort,
+            name: state.CreatedName,
+            active: state.CreatedActive.Value);
+
+        if (!shouldBeIncluded)
+            return true;
+
+        var item = new AgencyListItem
+        {
+            AgencyId = id,
+            DispatchCenterId = state.CreatedDispatchCenterId ?? 0,
+            Short = state.CreatedShort,
+            Name = state.CreatedName,
+            Type = state.CreatedType,
+            Owned = state.CreatedOwned.Value,
+            Active = state.CreatedActive.Value,
+            DispatchCenterCode = state.CreatedDispatchCenterCode ?? string.Empty
+        };
+
+        var row = new AgencyRowViewModel(item, new AsyncRelayCommand(() => NavigateDetails(id)));
+
+        var insertIndex = 0;
+        for (; insertIndex < Rows.Count; insertIndex++)
+        {
+            if (string.Compare(Rows[insertIndex].Short, row.Short, StringComparison.OrdinalIgnoreCase) > 0)
+                break;
+        }
+
+        Rows.Insert(insertIndex, row);
+        Selected = row;
+        return true;
     }
 
     private bool TryApplyEditStateToList(NavigationState state)
@@ -183,15 +322,12 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
             return true;
         }
 
-        // Row missing: if it should now be included, fall back to normal refresh
-        // so the row can be loaded with all list-only fields (ex: DispatchCenterCode).
         if (shouldBeIncluded)
         {
             _pendingSelectAgencyId = id;
             return false;
         }
 
-        // Missing and excluded: nothing to do, and no refresh required.
         return true;
     }
 
@@ -228,31 +364,60 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         };
     }
 
-    private async Task RefreshAsync()
+    private Task RefreshAsync() => RefreshAsync(force: false);
+
+    private async Task RefreshAsync(bool force)
     {
         var queryKey = $"{(int)Scope}|{SearchText}|{ActiveOnly}";
-        if (queryKey == _lastQueryKey && _pendingSelectAgencyId == null)
+        if (!force && queryKey == _lastQueryKey && _pendingSelectAgencyId == null)
             return;
 
         _lastQueryKey = queryKey;
 
-        var items = await _query.GetAgenciesAsync(
-            scope: Scope,
-            searchText: SearchText,
-            activeOnly: ActiveOnly);
+        var cts = new CancellationTokenSource();
+        var prior = Interlocked.Exchange(ref _refreshCts, cts);
+        prior?.Cancel();
+        prior?.Dispose();
 
-        Rows.Clear();
+        var token = cts.Token;
 
-        foreach (var item in items)
+        try
         {
-            var detailsCmd = new AsyncRelayCommand(() => NavigateDetails(item.AgencyId));
-            Rows.Add(new AgencyRowViewModel(item, detailsCmd));
+            var items = await _query.GetAgenciesAsync(
+                scope: Scope,
+                searchText: SearchText,
+                activeOnly: ActiveOnly,
+                cancellationToken: token);
+
+            if (token.IsCancellationRequested || !ReferenceEquals(_refreshCts, cts))
+                return;
+
+            Rows.Clear();
+
+            foreach (var item in items)
+            {
+                var detailsCmd = new AsyncRelayCommand(() => NavigateDetails(item.AgencyId));
+                Rows.Add(new AgencyRowViewModel(item, detailsCmd));
+            }
+
+            if (_pendingSelectAgencyId is int id)
+            {
+                Selected = Rows.FirstOrDefault(r => r.AgencyId == id);
+                _pendingSelectAgencyId = null;
+            }
         }
-
-        if (_pendingSelectAgencyId is int id)
+        catch (OperationCanceledException)
         {
-            Selected = Rows.FirstOrDefault(r => r.AgencyId == id);
-            _pendingSelectAgencyId = null;
+            // Expected when a newer refresh starts.
+        }
+        finally
+        {
+            if (ReferenceEquals(_refreshCts, cts))
+            {
+                _refreshCts = null;
+            }
+
+            cts.Dispose();
         }
     }
 
@@ -265,5 +430,13 @@ public sealed class AgenciesViewModel : ViewModelBase, INavigationAware
         var vm = _detailFactory.Create(agencyId);
         _navigation.Navigate(vm, returnState);
         Raise(nameof(Selected));
+    }
+
+    private Task NavigateCreateAsync()
+    {
+        var returnState = CaptureReturnState(Selected?.AgencyId);
+        var vm = _createFactory.Create();
+        _navigation.Navigate(vm, returnState);
+        return Task.CompletedTask;
     }
 }
